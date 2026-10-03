@@ -70,19 +70,39 @@ The console window is deliberate: it is where a startup failure is visible.
 its own interface, and an off-machine copy of that interface would have no
 backend behind it.
 
-To publish a release, copy the built executable in and update the link:
+To publish a release, run the checker. It refuses to stage anything that would
+404, and it is the reason a broken release is caught before it is pushed
+rather than after:
 
 ```bash
-mkdir -p site/downloads
-cp backend/dist/Circle.exe site/downloads/Circle-0.1.0-windows-x64.exe
-git add -f site/downloads/Circle-0.1.0-windows-x64.exe   # downloads/ is gitignored
+python backend/scripts/publish_release.py --check   # verify only
+python backend/scripts/publish_release.py          # stage into site/downloads
 ```
 
-Then bump the version in `site/index.html` — the download filename and the
-stated size — and in `frontend/src/version.ts`, which the in-app download
-link reads. Both are written by hand on purpose: a version that only appears in
-one of them produces a page offering a stale binary under a fresh name, or a
-size that no longer matches what people download.
+It verifies that the build is under the host's 100 MB per-file limit, that the
+filename carries the version, that `site/index.html` and
+`frontend/src/version.ts` agree on version and size, and that the stated size
+matches the actual build. Then it prints the `git add -f` to run, because
+`site/downloads/` is gitignored.
+
+**The size limit is a wall, not a guideline.** Git hosts reject any single file
+over 100 MB outright, so an oversized build cannot be committed and the
+download link 404s with no error anywhere to explain why. This is why the
+packaged build excludes the speech-to-text libraries (see below): with them it
+was 104 MB, and zipping only reached 103 MB because it was already compressed.
+
+### Voice notes in the packaged app
+
+The packaged build deliberately leaves out `faster-whisper`, `ctranslate2`,
+`onnxruntime` and PyAV — about 61 MB that only exist to transcribe audio. This
+takes the download from 104 MB to 40 MB.
+
+Circle already handles their absence rather than failing: the health check
+reports `stt: available false` with the reason, and a voice recording is
+marked failed with a clear message instead of crashing the import. Everything
+else — messages, email, calendar, documents, and all questions — works exactly
+the same. To transcribe voice notes, run the app from source with
+`pip install -r requirements.txt`, which includes `faster-whisper`.
 
 **A commit alone does not change the deployed site.** Render blueprints are
 not re-read on every push, so after changing `render.yaml` (or switching what

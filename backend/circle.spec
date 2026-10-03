@@ -34,6 +34,11 @@ hidden_imports = [
 excludes = [
     "tkinter", "matplotlib", "pytest", "IPython", "notebook",
     "torch", "tensorflow", "playwright", "selenium",
+    # Speech-to-text stack: ~61 MB of ctranslate2/onnxruntime/PyAV. Excluded
+    # from the packaged build so the shipped file fits a git host; Circle
+    # already degrades to UnavailableSTT when it is absent.
+    "faster_whisper", "ctranslate2", "onnxruntime", "av", "tokenizers",
+    "hf_xet",
 ]
 
 a = Analysis(

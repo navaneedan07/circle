@@ -9,10 +9,9 @@
 #            sync with a second copy.
 #
 # Deploy:
-#   1. Upload the built executable to site/downloads/ as
-#      Circle-<version>-windows-x64.exe (see BUILDING.md) and commit.
-#      The filename is versioned, so a cached page can never offer a stale
-#      binary under a fresh name.
+#   1. Stage the built executable: backend/scripts/publish_release.py
+#      It checks the file against the 100 MB host limit and the page copy, then
+#      prints the git add to run (site/downloads/ is gitignored).
 #   2. Reapply this blueprint in the Render dashboard, then push.
 #      Blueprints are not re-read on every push -- this step is the reason a
 #      site can keep serving the previous configuration after a commit.

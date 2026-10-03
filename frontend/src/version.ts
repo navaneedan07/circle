@@ -14,4 +14,4 @@ export const APP_VERSION = "0.1.0";
 /** Where the built executable is published, relative to the site root. */
 export const DOWNLOAD_PATH = "downloads/Circle-0.1.0-windows-x64.exe";
 
-export const DOWNLOAD_SIZE_MB = 105;
+export const DOWNLOAD_SIZE_MB = 40;
