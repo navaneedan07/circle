@@ -176,7 +176,10 @@ def get_settings_route() -> dict:
         "ollama_model": s.ollama_model,
         "embedding_model": s.ollama_embedding_model,
         "watcher_enabled": s.watcher_enabled,
-        "mongo_atlas": s.mongo_atlas,
+        # Reported by the running store, not the settings default: the
+        # engine can differ from what .env says (migrated, or overridden).
+        "storage_backend": ctx.store.engine_name(),
+        "sqlite_path": str(getattr(ctx.store, "path", "") or ""),
         "sentry_enabled": s.sentry_enabled and bool(s.sentry_dsn),
         "tts_enabled": bool(s.elevenlabs_api_key),
         "user_names": ctx.store.get_setting("user_names") or [],

@@ -7,7 +7,7 @@ Circle can be hosted two ways:
 
 This screen covers both the "cannot reach it" and "needs the key" cases, and
 also guides a new user through the one thing that cannot be automated: getting
-MongoDB and the Gemma model onto their machine.
+the Gemma model onto their machine.
 */
 import { useEffect, useState } from "react";
 import { api, AuthError, loadConnection, saveConnection } from "../api";
@@ -233,9 +233,9 @@ export default function ConnectPage({
             <div className="eyebrow">If Circle is not starting at all</div>
             <ul className="mt-2 space-y-2 text-sm leading-6 text-muted">
               <li>
-                <span className="text-ink">MongoDB</span> must be running.
-                Circle stores everything in a local database and cannot start
-                without one.
+                <span className="text-ink">The data folder</span> must be
+                writable. Circle keeps everything in one local archive file and
+                cannot start without it.
               </li>
               <li>
                 <span className="text-ink">Ollama</span> must be running for

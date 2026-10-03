@@ -1,54 +1,46 @@
-# Circle — static web UI for Render.
+# Circle — download page.
 #
-# This serves ONLY the web interface. The archive, the database and the model
-# all stay on your own machine; the browser reaches them through the tunnel you
-# start. Nothing private is deployed here.
+# Circle itself is a desktop application. This site exists only to explain it
+# and hand over the file: there is no server here, no database, no Python, and
+# nothing private. The app and your archive stay on your own machine.
 #
 # Deploy:
 #   1. Render > New > Blueprint. It reads this file from the repo root.
-#      (Or New > Static Site and copy the values below.)
-#   2. Add your Render URL to CORS_ORIGINS in the backend's .env, then restart:
-#        CORS_ORIGINS=https://circle-ui.onrender.com
-#   3. Start the tunnel on the machine running Circle:
-#        cloudflared tunnel --url http://127.0.0.1:8000
-#   4. Open the Render URL and paste the tunnel address + your access key.
+#   2. Upload the built executable to site/downloads/ (see BUILDING.md);
+#      the button in site/index.html points at that filename.
 #
-# Every request the UI makes then goes straight from your browser to your own
-# machine. Render never sees message content, and it hosts no Python at all.
+# Note the filename is versioned in two places on purpose: the download link
+# and the "about 105 MB" line. Bump both when cutting a release, so a cached
+# page can never offer a stale binary under a fresh name.
 
 services:
   - type: web
-    name: circle-ui
+    name: circle
     # Static sites use runtime: static (not node) and have no compute plan or
     # health check; those fields belong to long-running web services.
     runtime: static
 
-    # There is no package.json at the repo root — the app lives in frontend/ —
-    # so npm has to be told where to look, or `npm ci` fails immediately.
-    buildCommand: npm ci --prefix frontend && npm run build --prefix frontend
+    # There is no package.json at the repo root, so nothing needs building:
+    # site/ is committed HTML.
+    buildCommand: ""
 
-    staticPublishPath: ./frontend/dist
+    staticPublishPath: ./site
 
-    # Node 22 for the build (Vite 6 / React 19 / Tailwind 4).
     envVars:
       - key: NODE_VERSION
         value: "22"
 
-    # Client-side routing. Without this, refreshing /settings or opening a
-    # deep link to /person/<id> returns Render's 404 page instead of the app.
-    # Render still serves real files (/assets/*, favicon) before applying a
-    # rule, so this only catches paths the router owns.
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-
     headers:
-      # Vite fingerprints the bundle, so the filename changes every deploy.
-      - path: /assets/*
+      # The executable is replaced on every release, and a cached copy would
+      # silently be an old version. The filename is versioned too, so an
+      # immutable cache would be wrong here.
+      - path: /downloads/*
         name: Cache-Control
-        value: public, max-age=31536000, immutable
-      # index.html must never be cached, or users keep running an old bundle.
+        value: public, max-age=0, must-revalidate
       - path: /index.html
         name: Cache-Control
         value: no-cache
+      # A download should never be sniffed as something executable by a proxy.
+      - path: /downloads/*
+        name: X-Content-Type-Options
+        value: nosniff

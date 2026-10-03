@@ -65,7 +65,8 @@ someone is exhausting. Circle remembers the context for you — on your own mach
 backend/circle/
 ├── config.py           # settings from environment (.env)
 ├── domain/models.py    # universal data model (Person … RelationshipProfile)
-├── repository/         # storage interfaces + MongoDB implementation
+├── repository/         # storage engines behind one interface:
+│                       #   SQLite (default, one file) and MongoDB
 │                       #   (local cosine ranking, or $vectorSearch on Atlas)
 ├── ingestion/          # folder watcher (Windows-aware, multi-root) + pipeline
 ├── integration/        # cloud *folders* (Drive/OneDrive detection, no cloud API)
@@ -115,8 +116,9 @@ Both providers sit behind abstractions (`LLMProvider`, `EmbeddingProvider`,
 `SpeechToTextProvider`) so models can be swapped without touching the app.
 
 **Why Gemma?** Private reasoning: your relationship data is processed by a model running on
-your own hardware. **Why MongoDB?** One store for heterogeneous personal data with vector
-search for semantic memory. **Why Sentry?** Observability for a multi-stage AI pipeline
+your own hardware. **Why SQLite?** The archive is one file, so there is no database service to
+install or keep running, and backing up or deleting everything is one operation. MongoDB
+remains supported for larger archives. **Why Sentry?** Observability for a multi-stage AI pipeline
 without logging private content. **Why ElevenLabs (optional)?** Read answers aloud while
 the knowledge pipeline stays local — only the final answer text is sent.
 
@@ -275,8 +277,8 @@ restart. One broken file **never** stops the watcher.
 
 ```
 question → intent + person identification → metadata filters
-        → vector retrieval (cosine / Atlas $vectorSearch)
-        → keyword retrieval (MongoDB text index)
+        → vector retrieval (cosine over stored embeddings / Atlas $vectorSearch)
+        → keyword retrieval (FTS5 full-text index)
         → reciprocal-rank fusion → context assembly ([S1]… evidence block)
         → local Gemma → citation validation → answer + sources
 ```
@@ -289,9 +291,16 @@ inferences about people are never generated.
 
 ## 9. Setup
 
-### The short version
+### As an app
 
-Install **MongoDB**, **Ollama** and **Python 3.11+**, then:
+Download `Circle.exe` from the download page, install
+[Ollama](https://ollama.com/download), pull the two models, and run it. There is
+nothing else to install: the archive, the interface and the local model all live
+on your machine. See [BUILDING.md](BUILDING.md) to produce that file yourself.
+
+### From source
+
+Install **Ollama** and **Python 3.11+**, then:
 
 ```bash
 ollama pull gemma3:4b          # ~5GB, one time
@@ -311,7 +320,7 @@ skip that (useful on a headless machine or in a script). Both launchers work
 from any directory and are safe to run again: the second run skips the steps
 it has already done.
 
-Before starting, the launcher runs a **first-run check** of MongoDB, Ollama,
+Before starting, the launcher runs a **first-run check** of the archive folder, Ollama,
 both models and Node. If something is missing it prints the exact command to
 fix it and stops, rather than starting an app where nothing works. Run it on
 its own any time:
@@ -329,7 +338,7 @@ Set `CIRCLE_SKIP_DOCTOR=1` to start without the check.
 | --- | --- | --- |
 | Python 3.11+ | runs Circle | python.org, tick "Add to PATH" |
 | Node 18+ | builds the interface once | nodejs.org |
-| MongoDB | stores your archive | mongodb.com, or `docker run -d -p 27017:27017 mongo:7` |
+| Archive folder | stores your archive (SQLite file) | must be writable — usually automatic |
 | Ollama | runs the model locally | ollama.com |
 | ffmpeg | only for voice memos | optional |
 
@@ -359,55 +368,47 @@ cd ../backend
 
 Development (interface hot-reload): `cd frontend && npm run dev`.
 
-### Opening Circle from another device
+### The download page on Render
 
-The interface can be hosted on Render while **your archive, database and model
-stay on your own machine**. Render serves static files only; the browser talks
-to your machine through a tunnel you start yourself.
-
-#### Deploying the interface to Render
-
-`render.yaml` at the repo root is a [Render Blueprint][blueprint] for a static
-site. It is written to Render's published schema: `runtime: static`, no compute
-plan (static sites do not have one), and a rewrite of `/*` to `/index.html` so
-that refreshing `/settings` or opening a link to `/person/<id>` returns the app
-instead of a 404.
+The app is the product, so the deployed site is only a **download page**: it
+explains what Circle is and hands over the file. `render.yaml` is a
+[Render Blueprint][blueprint] that publishes `site/` — committed HTML, no build
+step, no Python, no database, nothing private.
 
 [blueprint]: https://render.com/docs/blueprint-spec
 
-1. Push the repository to GitHub.
-2. In Render: **New > Blueprint**, pick the repo. Render reads `render.yaml` and
-   creates the site for you. (Or **New > Static Site** and copy the values from
-   the file: build command, publish directory, Node version, rewrite rule.)
-3. Note the URL Render gives you, e.g. `https://circle-ui.onrender.com`.
+1. Put the built executable where the page expects it (see
+   [BUILDING.md](BUILDING.md)):
+   `site/downloads/Circle-0.1.0-windows-x64.exe`.
+2. Render: **New > Blueprint**, pick the repo. Render reads `render.yaml` and
+   creates the site. (Or **New > Static Site**: publish directory `./site`,
+   build command empty.)
 
-Then on the machine running Circle:
+Bump the version in `site/index.html` when you cut a release — the filename and
+the stated size are both written by hand, so they have to move together or the
+page starts offering a stale binary under a fresh name.
+
+### Reaching Circle from another device (optional)
+
+Not needed for normal use, and worth understanding before enabling it: a
+tunnel address is **public**. Anyone who has it, and the access key, can read
+your archive and permanently delete records.
+
+Circle is loopback-only by default and refuses remote callers unless you opt
+in. To open it from another machine on your own network, forward the port
+yourself and set an access key:
 
 ```bash
-# 1. Expose it locally
-cloudflared tunnel --url http://127.0.0.1:8000
-#    it prints something like https://random-words.trycloudflare.com
-
-# 2. Allow the hosted UI to call the API, then restart
-#    (backend/.env)
-CORS_ORIGINS=https://circle-ui.onrender.com
+# backend/.env
+ACCESS_KEY=<a long random string>
+ALLOW_REMOTE=true
+CORS_ORIGINS=http://192.168.1.20:8000
 ```
 
-4. Open the Render URL. It detects that it has no backend behind it and asks
-   for your Circle's address: paste the tunnel URL from step 1, plus the
-   access key.
-
-Only the static files are deployed. There is no Python, no database and no
-model on Render, so no environment variables are needed there.
-
-**The access key matters.** A tunnel address is public: anyone who has it can
-reach the API. Circle refuses remote callers unless `ACCESS_KEY` is set, and
-the key lives only in `.env` and in your browser. Render never sees it, and
-neither does the tunnel provider.
-
-Deploying Circle's *backend* to a cloud host is a different thing and is not
-supported: the model needs a GPU, the watcher needs your local files, and
-uploading the database would undo the privacy model this app is built on.
+Then visit `http://<this machine's LAN address>:8000` from the other device.
+For anything beyond your own network, prefer not to: deploying the backend to a
+cloud host would need a GPU for the model, local files for the watcher, and
+would undo the privacy model this app is built on.
 
 ## 9a. Using Circle
 
@@ -432,7 +433,9 @@ to them.
 See `backend/.env.example`. Key values:
 
 ```
-DATABASE_URL=mongodb://localhost:27017
+STORAGE_BACKEND=sqlite            # sqlite (default) | mongo
+SQLITE_FILE=                      # default: <data folder>/circle.db
+DATABASE_URL=mongodb://localhost:27017   # only when STORAGE_BACKEND=mongo
 MONGO_ATLAS=false                 # true → $vectorSearch on Atlas
 OLLAMA_URL=http://localhost:11434
 OLLAMA_MODEL=gemma3:4b
@@ -521,10 +524,17 @@ context over speed (or vice versa).
 
 ```bash
 cd backend
-.venv/Scripts/python -m pytest tests/ -q
+.venv/Scripts/python -m pytest tests/ -q                      # SQLite (default)
+STORAGE_BACKEND=mongo .venv/Scripts/python -m pytest tests/ -q # MongoDB
+MONGO_TESTS=1 .venv/Scripts/python -m pytest tests/test_storage.py -q
 ```
 
-428 tests cover: all parsers (happy path **and** edge cases), ZIP security (zip-slip,
+The suite runs against either storage engine (`STORAGE_BACKEND`), which is how a
+storage port earns trust: the same assertions have to hold on both. With
+`MONGO_TESTS=1` it additionally compares the two engines directly, so a
+divergence shows up as a failure rather than as a wrong number nobody notices.
+
+474 tests cover: all parsers (happy path **and** edge cases), ZIP security (zip-slip,
 traversal, bombs), duplicate detection, identity resolution (no silent merges),
 duplicate-person review, relationship metrics (explainable status), RAG citation
 validation (fabricated citations rejected), deterministic counting intents
@@ -537,7 +547,7 @@ and the REST API.
 
 ### What runs without the model
 
-Countable questions are answered by MongoDB aggregations, not by Gemma. Asking a
+Countable questions are answered by SQL aggregations over the archive, not by Gemma. Asking a
 4B model to count over 100k records produces a confident wrong number copied out
 of whichever message it retrieved: "how many people have I talked to" once
 answered *"109 people responded to a trip"*, a number that appeared inside a chat.
@@ -573,7 +583,7 @@ so a follow-up can refer back to it.
 
 Input validation · file-size limits · SHA-256 integrity · ZIP-slip/path-traversal
 protection · archive entry limits · filename sanitization (Windows reserved names,
-traversal, control chars) · MIME/extension allow-lists · parameterized MongoDB queries ·
+traversal, control chars) · MIME/extension allow-lists · parameterized queries ·
 secrets only via environment variables · **no passwords or platform credentials are ever
 stored** · no sensitive content in logs or error tracking · binds to `127.0.0.1` by default.
 

@@ -44,3 +44,8 @@ backend/.installed
 frontend/*.tmp.mjs
 frontend/*.tmp.png
 frontend/*.tsbuildinfo
+
+# --- packaged desktop build ---
+backend/dist/
+backend/build/
+site/downloads/

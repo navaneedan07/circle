@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Circle — a private record of your own life</title>
+    <meta
+      name="description"
+      content="Circle reads the exports you already have — messages, email, calendar, voice — and answers questions about your relationships. It runs entirely on your own machine."
+    />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <style>
+      :root {
+        --paper: #e9e3d6;
+        --ink: #1b1914;
+        --muted: #6b6558;
+        --line: #cdc4b0;
+        --accent: #4b5c3a;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --paper: #171510;
+          --ink: #e9e3d6;
+          --muted: #a49c8a;
+          --line: #35312a;
+          --accent: #a3c08a;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        line-height: 1.6;
+      }
+      a { color: inherit; }
+      .wrap { max-width: 46rem; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
+      header { border-bottom: 1px solid var(--line); padding-bottom: 1.5rem; }
+      .mark {
+        font-size: 1.1rem;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+      }
+      .tagline { color: var(--muted); font-size: 0.85rem; margin-top: 0.4rem; }
+      h1 {
+        font-size: clamp(2rem, 6vw, 3rem);
+        line-height: 1.15;
+        margin: 3rem 0 1rem;
+        font-weight: 500;
+      }
+      .lede { font-size: 1.1rem; color: var(--muted); max-width: 38rem; }
+      h2 {
+        font-size: 0.8rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 600;
+        margin: 3.5rem 0 1rem;
+      }
+      .downloads { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1.5rem 0 0; }
+      .btn {
+        display: inline-block;
+        border: 1px solid var(--ink);
+        padding: 0.75rem 1.25rem;
+        text-decoration: none;
+        font-size: 0.95rem;
+      }
+      .btn:hover, .btn:focus { background: var(--ink); color: var(--paper); }
+      .btn[aria-disabled="true"] {
+        border-color: var(--line);
+        color: var(--muted);
+        pointer-events: none;
+      }
+      .note { color: var(--muted); font-size: 0.85rem; margin-top: 0.9rem; }
+      ul { padding-left: 1.1rem; }
+      li { margin: 0.4rem 0; }
+      ol.steps { padding-left: 1.3rem; }
+      ol.steps li { margin: 0.8rem 0; }
+      code {
+        font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+        font-size: 0.88em;
+        border: 1px solid var(--line);
+        padding: 0.1rem 0.35rem;
+      }
+      .privacy {
+        border: 1px solid var(--line);
+        padding: 1.25rem 1.5rem;
+        margin-top: 3.5rem;
+      }
+      .privacy h3 { margin: 0 0 0.5rem; font-size: 1rem; }
+      .privacy p { margin: 0; color: var(--muted); }
+      footer {
+        border-top: 1px solid var(--line);
+        margin-top: 4rem;
+        padding-top: 1.5rem;
+        color: var(--muted);
+        font-size: 0.85rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        justify-content: space-between;
+      }
+      .skip {
+        position: absolute;
+        left: -9999px;
+      }
+      .skip:focus {
+        left: 1rem;
+        top: 1rem;
+        position: fixed;
+        background: var(--paper);
+        padding: 0.5rem 0.75rem;
+        border: 1px solid var(--ink);
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <div class="wrap">
+      <header>
+        <div class="mark">Circle</div>
+        <div class="tagline">a private record</div>
+      </header>
+
+      <main id="main">
+        <h1>Your messages already know who matters. Circle helps you ask.</h1>
+        <p class="lede">
+          Point Circle at the exports you already have — WhatsApp, Telegram,
+          Instagram, email, calendar, voice notes. It reads them, works out who
+          is who, and answers questions like
+          &ldquo;who do I talk to most&rdquo; or &ldquo;what did we promise about
+          the project&rdquo;. Everything runs on your own machine.
+        </p>
+
+        <div class="downloads">
+          <a class="btn" href="downloads/Circle-0.1.0-windows-x64.exe" download>
+            Download for Windows
+          </a>
+          <span class="btn" aria-disabled="true">macOS &mdash; soon</span>
+          <span class="btn" aria-disabled="true">Linux &mdash; soon</span>
+        </div>
+        <p class="note">
+          One file, about 105&nbsp;MB. Nothing to install, no account, no server.
+        </p>
+
+        <h2>Setting it up</h2>
+        <ol class="steps">
+          <li>
+            Install <a href="https://ollama.com/download">Ollama</a> and leave it
+            running. It is the only other thing Circle needs, and it is what
+            lets answers be generated on your own hardware.
+          </li>
+          <li>
+            Pull the model, in a terminal:
+            <div><code>ollama pull gemma3:4b</code></div>
+            <div><code>ollama pull nomic-embed-text</code></div>
+          </li>
+          <li>
+            Unzip Circle and double-click <code>Circle.exe</code>. Your browser
+            opens automatically.
+          </li>
+          <li>
+            Drop your exports into the folder Circle watches. It picks them up
+            on its own.
+          </li>
+        </ol>
+        <p class="note">
+          First run indexes everything and can take a few minutes. The Settings
+          screen shows progress and tells you if a model is missing.
+        </p>
+
+        <h2>What Circle reads</h2>
+        <ul>
+          <li>Chat exports: WhatsApp, Telegram, Instagram, X</li>
+          <li>Email (mbox and individual messages)</li>
+          <li>Calendar (ICS)</li>
+          <li>Voice notes and other attachments inside exports</li>
+          <li>Notes and documents you drop in</li>
+        </ul>
+
+        <h2>What Circle does not do</h2>
+        <ul>
+          <li>It does not connect to any social account. It reads files.</li>
+          <li>It never merges two people without asking you first.</li>
+          <li>It does not send anything anywhere, because there is nowhere for it to send it.</li>
+        </ul>
+
+        <div class="privacy">
+          <h3>Where your data lives</h3>
+          <p>
+            In one archive file inside <code>Documents\Circle\circle.db</code>, on
+            this machine. Nothing is uploaded, synced or backed up anywhere you
+            did not ask for. Close Circle and it is gone; delete that folder and
+            so is everything in it.
+          </p>
+        </div>
+      </main>
+
+      <footer>
+        <span>Circle &mdash; local-first relationship intelligence</span>
+        <span><a href="https://github.com/navaneedan07/circle">Source on GitHub</a></span>
+      </footer>
+    </div>
+  </body>
+</html>

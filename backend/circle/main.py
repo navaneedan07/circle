@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -89,8 +90,11 @@ def create_app() -> FastAPI:
     app.include_router(core_router)
     app.include_router(imports_router)
 
-    # Serve the built frontend when present (production mode)
-    dist = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
+    # Serve the built frontend when present (production mode). A packaged
+    # build has no source tree, so the desktop launcher says where it is.
+    override = os.environ.get("CIRCLE_FRONTEND_DIST")
+    dist = (Path(override) if override else
+            Path(__file__).resolve().parent.parent.parent / "frontend" / "dist")
     if dist.exists():
         # Client-side routes (/, /imports, /settings, /person/<id>) are not real
         # files on disk. Without this fallback a refresh or a pasted link hits

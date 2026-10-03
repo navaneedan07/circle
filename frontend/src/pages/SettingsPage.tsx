@@ -372,12 +372,7 @@ export default function SettingsPage() {
               ["Reasoning model", String(settings?.ollama_model ?? "")],
               ["Embedding model", String(settings?.embedding_model ?? "")],
               ["Ollama URL", String(settings?.ollama_url ?? "")],
-              [
-                "Vector store",
-                String(settings?.mongo_atlas ?? false) === "true"
-                  ? "MongoDB Atlas Vector Search"
-                  : "MongoDB, local",
-              ],
+              ["Archive", String(settings?.storage_backend ?? "sqlite")],
               ["Import root", String(settings?.import_root ?? "")],
               [
                 "Watched folders",
