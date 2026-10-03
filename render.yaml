@@ -4,25 +4,51 @@
 # all stay on your own machine; the browser reaches them through the tunnel you
 # start. Nothing private is deployed here.
 #
-# Render: New > Static Site
-#   Repository:       your fork of circle
-#   Build command:    npm ci && npm run build --prefix frontend
-#   Publish directory: frontend/dist
-#   Environment:      (none)
+# Deploy:
+#   1. Render > New > Blueprint. It reads this file from the repo root.
+#      (Or New > Static Site and copy the values below.)
+#   2. Add your Render URL to CORS_ORIGINS in the backend's .env, then restart:
+#        CORS_ORIGINS=https://circle-ui.onrender.com
+#   3. Start the tunnel on the machine running Circle:
+#        cloudflared tunnel --url http://127.0.0.1:8000
+#   4. Open the Render URL and paste the tunnel address + your access key.
 #
-# Then:
-#   1. add your Render URL to CORS_ORIGINS in the backend's .env
-#   2. start the tunnel on the machine running Circle
-#   3. open the Render URL and paste the tunnel address + access key
+# Every request the UI makes then goes straight from your browser to your own
+# machine. Render never sees message content, and it hosts no Python at all.
 
 services:
   - type: web
     name: circle-ui
-    runtime: node
-    plan: free
-    buildCommand: npm ci && npm run build --prefix frontend
+    # Static sites use runtime: static (not node) and have no compute plan or
+    # health check; those fields belong to long-running web services.
+    runtime: static
+
+    # There is no package.json at the repo root — the app lives in frontend/ —
+    # so npm has to be told where to look, or `npm ci` fails immediately.
+    buildCommand: npm ci --prefix frontend && npm run build --prefix frontend
+
     staticPublishPath: ./frontend/dist
+
+    # Node 22 for the build (Vite 6 / React 19 / Tailwind 4).
     envVars:
       - key: NODE_VERSION
         value: "22"
-    healthCheckPath: /
+
+    # Client-side routing. Without this, refreshing /settings or opening a
+    # deep link to /person/<id> returns Render's 404 page instead of the app.
+    # Render still serves real files (/assets/*, favicon) before applying a
+    # rule, so this only catches paths the router owns.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+    headers:
+      # Vite fingerprints the bundle, so the filename changes every deploy.
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      # index.html must never be cached, or users keep running an old bundle.
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache

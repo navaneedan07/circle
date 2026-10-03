@@ -309,6 +309,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       false
     );
   }
+  // A hosted UI (the Render site) rewrites unknown paths to index.html, so a
+  // wrong or missing address returns 200 with HTML rather than a JSON error.
+  // Reading that as JSON would surface a raw parser message; say what is
+  // actually wrong instead.
+  const contentType = res.headers.get("content-type") || "";
+  if (contentType.includes("text/html")) {
+    throw new AuthError(
+      connection.baseUrl
+        ? `Circle at ${connection.baseUrl} did not answer. Is that address right?`
+        : "This page has no Circle backend behind it. Enter your Circle's address above.",
+      false
+    );
+  }
   if (!res.ok) {
     let detail = res.statusText;
     try {

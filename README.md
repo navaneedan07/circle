@@ -365,17 +365,40 @@ The interface can be hosted on Render while **your archive, database and model
 stay on your own machine**. Render serves static files only; the browser talks
 to your machine through a tunnel you start yourself.
 
+#### Deploying the interface to Render
+
+`render.yaml` at the repo root is a [Render Blueprint][blueprint] for a static
+site. It is written to Render's published schema: `runtime: static`, no compute
+plan (static sites do not have one), and a rewrite of `/*` to `/index.html` so
+that refreshing `/settings` or opening a link to `/person/<id>` returns the app
+instead of a 404.
+
+[blueprint]: https://render.com/docs/blueprint-spec
+
+1. Push the repository to GitHub.
+2. In Render: **New > Blueprint**, pick the repo. Render reads `render.yaml` and
+   creates the site for you. (Or **New > Static Site** and copy the values from
+   the file: build command, publish directory, Node version, rewrite rule.)
+3. Note the URL Render gives you, e.g. `https://circle-ui.onrender.com`.
+
+Then on the machine running Circle:
+
 ```bash
-# 1. On the machine running Circle: expose it locally
+# 1. Expose it locally
 cloudflared tunnel --url http://127.0.0.1:8000
 #    it prints something like https://random-words.trycloudflare.com
 
-# 2. In backend/.env, allow the hosted UI to call the API
+# 2. Allow the hosted UI to call the API, then restart
+#    (backend/.env)
 CORS_ORIGINS=https://circle-ui.onrender.com
-
-# 3. Restart Circle, then open the Render URL and paste in the tunnel address
-#    and the access key from your .env
 ```
+
+4. Open the Render URL. It detects that it has no backend behind it and asks
+   for your Circle's address: paste the tunnel URL from step 1, plus the
+   access key.
+
+Only the static files are deployed. There is no Python, no database and no
+model on Render, so no environment variables are needed there.
 
 **The access key matters.** A tunnel address is public: anyone who has it can
 reach the API. Circle refuses remote callers unless `ACCESS_KEY` is set, and
