@@ -20,7 +20,7 @@ from circle.ai.embeddings import EmbeddingProvider
 from circle.ai.llm import LLMProvider
 from circle.config import get_settings
 from circle.domain.models import Memory, Person, RelationshipProfile, SourceType
-from circle.repository.mongo import MongoStore
+from circle.repository.base import Store
 
 log = logging.getLogger("circle.rag")
 
@@ -356,7 +356,7 @@ def understand(question: str) -> QuestionPlan:
     return plan
 
 
-def identify_person(store: MongoStore, question: str) -> Optional[Person]:
+def identify_person(store: Store, question: str) -> Optional[Person]:
     """Deterministic name matching against people/aliases. Returns None when
     ambiguous -- the caller then searches across all people."""
     people = store.list_people(limit=1000)
@@ -410,7 +410,7 @@ def _as_datetime(value: Any) -> Optional[datetime]:
     return None
 
 
-def hybrid_retrieve(store: MongoStore, embedder: EmbeddingProvider,
+def hybrid_retrieve(store: Store, embedder: EmbeddingProvider,
                     question: str, filters: dict[str, Any],
                     k: int = MAX_EVIDENCE, snippet_chars: int = EVIDENCE_SNIPPET,
                     total_chars: int = 0) -> list[Evidence]:
@@ -542,7 +542,7 @@ INSUFFICIENT = "I couldn't find enough evidence in your imported data."
 # Main entry points
 # ---------------------------------------------------------------------------
 class RagPipeline:
-    def __init__(self, store: MongoStore, embedder: EmbeddingProvider,
+    def __init__(self, store: Store, embedder: EmbeddingProvider,
                  llm: LLMProvider):
         self.store = store
         self.embedder = embedder

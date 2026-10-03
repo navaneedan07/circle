@@ -372,14 +372,7 @@ def list_notes(person_id: Optional[str] = None, limit: int = 100) -> dict:
     if person_id:
         notes = ctx.store.list_notes_for_person(person_id, limit=limit)
     else:
-        from circle.domain.models import Note as N
-        notes = []
-        for d in ctx.store.db.notes.find().sort("noted_at", -1).limit(limit):
-            oid = d.pop("_id", None)
-            n = N.model_validate({k: v for k, v in d.items() if k in N.model_fields})
-            if n.id is None and oid is not None:
-                n = n.model_copy(update={"id": oid})
-            notes.append(n)
+        notes = ctx.store.list_notes_recent(limit=limit)
     return {"notes": [n.model_dump(mode="json") for n in notes]}
 
 
@@ -560,10 +553,7 @@ def get_memory(memory_id: str) -> dict:
     rid = mem.record_id
     try:
         if kind == "message" and rid:
-            d = ctx.store.db.messages.find_one({"_id": rid})
-            if d:
-                d.pop("_id", None)
-                record = d
+            record = ctx.store.get_message(rid) or {}
         elif kind == "email" and rid:
             e = ctx.store.get_email(rid)
             record = e.model_dump(mode="json") if e else {}

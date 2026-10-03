@@ -15,6 +15,9 @@ os.environ.setdefault("DATABASE_NAME", "circle_test")
 os.environ.setdefault("WATCHER_ENABLED", "false")
 os.environ.setdefault("SENTRY_ENABLED", "false")
 os.environ.setdefault("OLLAMA_URL", "http://localhost:11434")
+# Which store the suite exercises. SQLite is the shipped default; set
+# CIRCLE_TEST_BACKEND=mongo to run the same tests against MongoDB.
+os.environ.setdefault("STORAGE_BACKEND", "sqlite")
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -85,21 +88,41 @@ class FakeLLM:
 
 
 @pytest.fixture(scope="session")
-def store():
-    from circle.repository.mongo import MongoStore
+def store(tmp_path_factory):
+    """The store under test, wiped before and after the session.
+
+    Both engines are supported so a storage bug cannot hide behind whichever
+    one happens to be installed: CIRCLE_TEST_BACKEND=mongo pytest.
+    """
     from circle.config import get_settings
+    from circle.repository.factory import get_store
     s = get_settings()
-    st = MongoStore(s)
-    st.client.drop_database(s.database_name)   # fresh test DB
-    yield st
-    st.client.drop_database(s.database_name)
+    if (s.storage_backend or "").lower().startswith("mongo"):
+        st = get_store(s)
+        st.client.drop_database(s.database_name)   # fresh test DB
+        yield st
+        st.client.drop_database(s.database_name)
+    else:
+        path = tmp_path_factory.mktemp("circle-store") / "circle-test.db"
+        st = get_store(s, sqlite_path=str(path))
+        yield st
+        st.close()
 
 
 @pytest.fixture()
 def clean_store(store):
-    for name in store.db.list_collection_names():
-        store.db[name].delete_many({})
-    # keep indexes
+    if hasattr(store, "db"):        # Mongo
+        for name in store.db.list_collection_names():
+            store.db[name].delete_many({})
+        # keep indexes
+    else:                            # SQLite
+        for table in ("people", "conversations", "messages", "emails",
+                      "calendar_events", "notes", "voice_recordings",
+                      "media", "documents", "memories", "relationship_events",
+                      "sources", "import_jobs", "profiles", "processed_files",
+                      "identity_suggestions", "app_settings"):
+            store.engine.execute(f"DELETE FROM {table}")
+        store.engine.execute("DELETE FROM memories_fts")
     yield store
 
 

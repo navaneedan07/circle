@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.store_probe import count, drop, has_embedding
+
 WA_CONTENT = """\
 12/28/23, 8:42 PM - Aravinth Kumar: SIH meeting tomorrow?
 12/28/23, 8:43 PM - Me: yes, at 6pm
@@ -14,7 +16,7 @@ WA_CONTENT = """\
 
 
 def _drop_processed(store, checksum: str) -> None:
-    store.db.processed_files.delete_many({"checksum": checksum})
+    drop(store, "processed_files", {"checksum": checksum})
 
 
 class TestPipeline:
@@ -46,9 +48,10 @@ class TestPipeline:
         # memories + embeddings exist
         mems = clean_store.memories_for_person(person.id, limit=50)
         assert mems
-        emb_docs = list(clean_store.db.memories.find(
-            {"person_id": person.id}, {"embedding": 1}))
-        assert emb_docs and all(d.get("embedding") for d in emb_docs)
+        mem_ids = [m.id for m in clean_store.memories_for_person(
+            person.id, limit=50)]
+        assert mem_ids and all(has_embedding(clean_store, mid)
+                              for mid in mem_ids)
 
         # relationship profile computed and explainable
         profile = clean_store.get_profile(person.id)
@@ -70,8 +73,7 @@ class TestPipeline:
 
         # message count unchanged (no duplicate memories)
         from circle.domain.models import SourceType
-        total = clean_store.db.messages.count_documents(
-            {"source": "whatsapp"})
+        total = count(clean_store, "messages", {"source": "whatsapp"})
         assert total == 3
 
     def test_duplicate_messages_within_file(self, pipeline, clean_store, tmp_path):
@@ -80,7 +82,7 @@ class TestPipeline:
         f.write_text(doubled, encoding="utf-8")
         result = pipeline.process_path(f)
         assert result.status == "COMPLETED"
-        assert clean_store.db.messages.count_documents({"source": "whatsapp"}) == 3
+        assert count(clean_store, "messages", {"source": "whatsapp"}) == 3
 
     def test_unparseable_file_goes_to_failed(self, pipeline, tmp_path):
         f = tmp_path / "garbage.txt"
@@ -104,8 +106,7 @@ class TestPipeline:
             zf.writestr("Aravinth_chat.txt", WA_CONTENT)
         result = pipeline.process_path(zpath)
         assert result.status == "COMPLETED"
-        assert clean_store.db.messages.count_documents(
-            {"source": "whatsapp"}) == 3
+        assert count(clean_store, "messages", {"source": "whatsapp"}) == 3
         # temp extraction removed
         assert not any(pipeline.settings.temp_dir().parent.glob("circle-zip-*")) \
             if pipeline.settings.temp_dir().parent.exists() else True
@@ -134,7 +135,7 @@ END:VCALENDAR
         (tmp_path / "meet.ics").write_text(ics, encoding="utf-8")
         r = pipeline.process_path(tmp_path / "meet.ics")
         assert r.status == "COMPLETED"
-        assert clean_store.db.calendar_events.count_documents({}) == 1
+        assert count(clean_store, "calendar_events") == 1
 
         eml = ("From: Aravinth Kumar <aravinth@example.com>\n"
                "To: me@example.com\nSubject: SIH draft\n"
@@ -143,7 +144,7 @@ END:VCALENDAR
         (tmp_path / "mail.eml").write_text(eml, encoding="utf-8")
         r2 = pipeline.process_path(tmp_path / "mail.eml")
         assert r2.status == "COMPLETED"
-        assert clean_store.db.emails.count_documents({}) == 1
+        assert count(clean_store, "emails") == 1
 
     def test_one_broken_file_does_not_stop_others(self, pipeline, tmp_path):
         bad = tmp_path / "bad.txt"

@@ -67,6 +67,14 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    # Middleware order: Starlette inserts each new middleware at the FRONT of
+    # the stack, so the last one registered runs first. CORS must therefore be
+    # registered LAST, or the access-key check would run outside it and both
+    # preflight OPTIONS and 401 responses would reach the browser without CORS
+    # headers -- which the browser reports as a bare "Failed to fetch" instead
+    # of the real reason, and blocks every call from a hosted UI.
+    app.middleware("http")(access_key_middleware)
+
     app.add_middleware(
         CORSMiddleware,
         # A hosted UI (static host, tunnel) is an extra origin, configured via
@@ -77,10 +85,6 @@ def create_app() -> FastAPI:
         # The access key travels in a custom header, so it must be allowed.
         allow_headers=["*"],
     )
-
-    # Order matters: CORS runs outermost so a rejected request still carries
-    # the headers a browser needs to read the 401 body.
-    app.middleware("http")(access_key_middleware)
 
     app.include_router(core_router)
     app.include_router(imports_router)

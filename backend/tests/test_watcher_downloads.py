@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from circle.ingestion.watcher import FolderWatcher, is_in_progress
+from tests.store_probe import count
 
 WA = ("12/28/23, 8:42 PM - Aravinth Kumar: SIH meeting tomorrow?\n"
       "12/28/23, 8:43 PM - Me: yes, at 6pm\n")
@@ -50,7 +51,7 @@ class TestWatcherSkipsPartials:
         assert partial.exists(), "partial file must be left alone"
         assert list(settings.failed_dir().rglob("*")) == []
         assert list(settings.quarantine_dir().rglob("*")) == []
-        assert pipeline.store.db.import_jobs.count_documents({}) == 0
+        assert count(pipeline.store, "import_jobs") == 0
 
     def test_zero_byte_file_parked_not_failed(self, pipeline, tmp_path):
         settings = pipeline.settings
@@ -65,7 +66,7 @@ class TestWatcherSkipsPartials:
 
         assert empty.exists()
         assert list(settings.quarantine_dir().rglob("*")) == []
-        assert pipeline.store.db.import_jobs.count_documents({}) == 0
+        assert count(pipeline.store, "import_jobs") == 0
 
     def test_renamed_completed_download_is_processed(self, pipeline, tmp_path):
         """After the browser renames .crdownload -> .zip it gets ingested."""
@@ -82,7 +83,7 @@ class TestWatcherSkipsPartials:
         watcher._handle(final)
 
         assert not final.exists(), "processed file moves to processed/"
-        assert pipeline.store.db.messages.count_documents(
+        assert count(pipeline.store, "messages",
             {"source": "whatsapp"}) == 2
 
     def test_initial_scan_ignores_partials(self, pipeline):
@@ -110,7 +111,7 @@ class TestNestedArchives:
 
         result = pipeline.process_path(outer)
         assert result.status == "COMPLETED"
-        assert pipeline.store.db.messages.count_documents(
+        assert count(pipeline.store, "messages",
             {"source": "whatsapp"}) == 2
 
     def test_media_entries_ingested_not_failed(self, pipeline, tmp_path):
@@ -143,7 +144,7 @@ class TestNestedArchives:
 
         result = pipeline.process_path(f)
         assert result.status == "COMPLETED"
-        assert pipeline.store.db.messages.count_documents(
+        assert count(pipeline.store, "messages",
             {"source": "telegram"}) == 1
 
     def test_ambiguous_zip_name_uses_archive_name_hint(self, pipeline, tmp_path):
@@ -153,5 +154,5 @@ class TestNestedArchives:
             zf.writestr("chat.txt", WA)
         result = pipeline.process_path(z)
         assert result.status == "COMPLETED"
-        assert pipeline.store.db.messages.count_documents(
+        assert count(pipeline.store, "messages",
             {"source": "whatsapp"}) == 2

@@ -20,6 +20,9 @@ frontend/.vite/
 # --- local personal data (never commit imported/private data) ---
 Circle-data/
 backend/Circle-data/
+backend/circle-data/
+backend/circle-archive/
+circle-archive/
 backend/processed/
 backend/failed/
 backend/quarantine/

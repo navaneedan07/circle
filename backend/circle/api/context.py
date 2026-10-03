@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from circle.ai.embeddings import EmbeddingProvider, get_embeddings
 from circle.ai.llm import LLMProvider, get_llm
@@ -17,7 +17,7 @@ from circle.ingestion.pipeline import IngestionPipeline
 from circle.ingestion.watcher import FolderWatcher
 from circle.integration import cloudfolder
 from circle.realtime.broker import EventBroker, broker
-from circle.repository.mongo import MongoStore
+from circle.repository.factory import get_store
 
 log = logging.getLogger("circle.context")
 
@@ -25,7 +25,7 @@ log = logging.getLogger("circle.context")
 @dataclass
 class AppContext:
     settings: Settings
-    store: MongoStore
+    store: Any
     resolver: IdentityResolver
     embedder: EmbeddingProvider
     llm: LLMProvider
@@ -38,7 +38,7 @@ class AppContext:
     @classmethod
     def build(cls, settings: Optional[Settings] = None) -> "AppContext":
         settings = settings or get_settings()
-        store = MongoStore(settings)
+        store = get_store(settings)
         resolver = IdentityResolver(store)
         embedder = get_embeddings()
         llm = get_llm()
@@ -60,11 +60,14 @@ class AppContext:
         health: dict = {}
 
         # 1-2. database
-        health["database"] = {"connected": self.store.ping(),
-                              "engine": "mongodb-atlas" if self.settings.mongo_atlas
-                              else "mongodb"}
+        health["database"] = {
+            "connected": self.store.ping(),
+            "engine": self.store.engine_name(),
+        }
         if not health["database"]["connected"]:
-            health["database"]["detail"] = "cannot reach MongoDB at DATABASE_URL"
+            health["database"]["detail"] = (
+                "cannot open the local archive at "
+                f"{getattr(self.store, 'path', self.settings.sqlite_path())}")
         else:
             # resume jobs interrupted by a restart
             resumed = self.store.resume_incomplete_jobs()
@@ -217,7 +220,7 @@ class AppContext:
 _ctx: Optional[AppContext] = None
 
 
-def _roots_from_config(settings: Settings, store: MongoStore) -> list[Path]:
+def _roots_from_config(settings: Settings, store: Any) -> list[Path]:
     """Watch folders, in order: the managed root, then every extra folder.
 
     Extras come from the Settings screen when it has been used, otherwise from

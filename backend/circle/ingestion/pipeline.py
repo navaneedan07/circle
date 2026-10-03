@@ -43,7 +43,7 @@ from circle.parsers import x as x_parser
 from circle.parsers.common import ParseResult, clean_text, deterministic_id
 from circle.parsers.export_scope import skip_reason as _export_skip_reason
 from circle.relationship.metrics import compute_profile, extract_topics, record_event
-from circle.repository.mongo import MongoStore
+from circle.repository.base import Store
 from circle.security.files import (
     AUDIO_EXTENSIONS, FileSecurityError, move_file, safe_extract_zip,
     sanitize_filename, sha256_file, validate_extension, validate_size,
@@ -74,7 +74,7 @@ class PipelineResult:
 
 
 class IngestionPipeline:
-    def __init__(self, store: MongoStore, resolver: IdentityResolver,
+    def __init__(self, store: Store, resolver: IdentityResolver,
                  embedder, llm=None, stt=None, broker=None,
                  settings: Optional[Settings] = None,
                  watch_roots: Optional[list[Path]] = None):
@@ -941,16 +941,15 @@ class IngestionPipeline:
                     suggestion = p.id
                     break
             if suggestion:
-                self.store.db.identity_suggestions.update_one(
-                    {"_id": f"sug-voice-{rec_id}-{suggestion}"},
-                    {"$set": {"person_a_id": suggestion, "label": rec.filename,
-                              "source": "voice", "confidence": 0.5,
-                              "reason": "name mentioned in transcript",
-                              "status": "pending",
-                              "detail": {"person_name": "see profile",
-                                         "identity": rec.filename,
-                                         "source": "voice"}}},
-                    upsert=True)
+                self.store.upsert_identity_suggestion(
+                    f"sug-voice-{rec_id}-{suggestion}",
+                    {"person_a_id": suggestion, "label": rec.filename,
+                     "source": "voice", "confidence": 0.5,
+                     "reason": "name mentioned in transcript",
+                     "status": "pending",
+                     "detail": {"person_name": "see profile",
+                                "identity": rec.filename,
+                                "source": "voice"}})
 
             mem = Memory(
                 id="mem-" + rec_id,

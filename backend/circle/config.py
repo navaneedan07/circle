@@ -14,6 +14,12 @@ class Settings(BaseSettings):
     )
 
     # Database
+    # Circle ships as one local application, so the default is a single
+    # SQLite file: no server to install, no service to keep running, and the
+    # whole archive is one thing to back up or delete. STORAGE_BACKEND=mongo
+    # remains available for the large existing archive.
+    storage_backend: str = "sqlite"
+    sqlite_file: str = "circle.db"
     database_url: str = "mongodb://localhost:27017"
     database_name: str = "circle"
     mongo_atlas: bool = False
@@ -117,6 +123,19 @@ class Settings(BaseSettings):
 
     def temp_dir(self) -> Path:
         return self.root_dir().parent / "tmp"
+
+    def data_dir(self) -> Path:
+        """Where Circle keeps its own state (the SQLite archive lives here).
+
+        Deliberately a sibling of the import folder, never a subfolder of it:
+        the watcher walks the import root, and the archive is not an export.
+        """
+        return self.root_dir().parent / "circle-archive"
+
+    def sqlite_path(self) -> Path:
+        """Full path to the SQLite archive file."""
+        raw = Path(self.sqlite_file).expanduser()
+        return raw if raw.is_absolute() else self.data_dir() / raw
 
     def root_is_managed(self) -> bool:
         """True when the primary import root is Circle's own folder.

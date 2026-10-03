@@ -16,7 +16,7 @@ from circle.domain.models import (
     CalendarEvent, Email, Memory, Message, Note, RelationshipEvent,
     RelationshipProfile, RelationshipStatus, TopicStat, VoiceRecording,
 )
-from circle.repository.mongo import MongoStore
+from circle.repository.base import Store
 
 log = logging.getLogger("circle.relationship")
 
@@ -160,7 +160,7 @@ def extract_topics(text: str, limit: int = 5,
     return topics[:limit]
 
 
-def record_event(store: MongoStore, *, person_id: str, kind: str, source: str,
+def record_event(store: Store, *, person_id: str, kind: str, source: str,
                  occurred_at: Optional[datetime], summary: str,
                  record_id: str) -> None:
     if not person_id or not occurred_at:
@@ -173,7 +173,7 @@ def record_event(store: MongoStore, *, person_id: str, kind: str, source: str,
     store.insert_relationship_event(ev)
 
 
-def compute_profile(store: MongoStore, person_id: str) -> Optional[RelationshipProfile]:
+def compute_profile(store: Store, person_id: str) -> Optional[RelationshipProfile]:
     person = store.get_person(person_id)
     if not person:
         return None

@@ -336,17 +336,7 @@ def list_voice(person_id: Optional[str] = None, limit: int = 50) -> dict:
     if person_id:
         recs = ctx.store.list_voice_for_person(person_id, limit=limit)
     else:
-        recs = []
-        for d in ctx.store.db.voice_recordings.find().sort(
-                "imported_at", -1).limit(limit):
-            oid = d.pop("_id", None)
-            from circle.domain.models import VoiceRecording
-            rec = VoiceRecording.model_validate(
-                {k: v for k, v in d.items()
-                 if k in VoiceRecording.model_fields})
-            if rec.id is None and oid is not None:
-                rec = rec.model_copy(update={"id": oid})
-            recs.append(rec)
+        recs = ctx.store.list_voice_recent(limit=limit)
     return {"recordings": [r.model_dump(mode="json") for r in recs]}
 
 
@@ -448,8 +438,7 @@ def voice_associate(payload: VoiceAssociateIn) -> dict:
                      source=SourceType.VOICE.value, occurred_at=rec.recorded_at,
                      summary=rec.transcript[:80], record_id=rec.id or "")
         # attach memory to person
-        ctx.store.db.memories.update_many(
-            {"record_id": rec.id}, {"$set": {"person_id": payload.person_id}})
+        ctx.store.update_memories_person(rec.id, payload.person_id)
         ctx.pipeline.refresh_profiles({payload.person_id})
     ctx.broker.publish("voice", {"id": rec.id, "person_id": payload.person_id})
     return {"ok": True}

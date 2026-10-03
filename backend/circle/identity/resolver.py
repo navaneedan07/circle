@@ -14,7 +14,6 @@ from typing import Optional
 
 from circle.domain.models import DataOrigin, IdentityLink, Person, SourceType
 from circle.parsers.common import ParsedContact, clean_text, normalize_email, normalize_phone
-from circle.repository.mongo import MongoStore
 
 log = logging.getLogger("circle.identity")
 
@@ -43,7 +42,7 @@ def _norm_name(name: str) -> str:
 
 
 class IdentityResolver:
-    def __init__(self, store: MongoStore):
+    def __init__(self, store):
         self.store = store
         user_names = store.get_setting("user_names")
         self.user_names = {str(n).lower() for n in (user_names or [])} | USER_NAMES_DEFAULT
@@ -208,19 +207,16 @@ class IdentityResolver:
     def _queue_suggestion(self, person: Person, label: str, source: SourceType,
                           confidence: float, reason: str) -> None:
         s_id = f"sug-{person.id}-{_norm_name(label).replace(' ', '-')}"
-        self.store.db.identity_suggestions.update_one(
-            {"_id": s_id},
-            {"$set": {
-                "person_a_id": person.id,
-                "label": label,
-                "source": source.value,
-                "confidence": confidence,
-                "reason": reason,
-                "status": "pending",
-                "detail": {"person_name": person.display_name,
-                           "identity": label, "source": source.value},
-            }},
-            upsert=True)
+        self.store.upsert_identity_suggestion(s_id, {
+            "person_a_id": person.id,
+            "label": label,
+            "source": source.value,
+            "confidence": confidence,
+            "reason": reason,
+            "status": "pending",
+            "detail": {"person_name": person.display_name,
+                       "identity": label, "source": source.value},
+        })
 
     def _queue_duplicate(self, keep: Person, drop: Person,
                          reason: str = "same name from different threads") -> str:
@@ -231,22 +227,19 @@ class IdentityResolver:
         rather than just record an alias.
         """
         s_id = f"dup-{keep.id}-{drop.id}"
-        self.store.db.identity_suggestions.update_one(
-            {"_id": s_id},
-            {"$set": {
-                "person_a_id": keep.id,
-                "person_b_id": drop.id,
-                "label": drop.display_name,
-                "source": "import",
-                "confidence": 0.6,
-                "reason": reason,
-                "status": "pending",
-                "detail": {"keep_id": keep.id,
-                           "keep_name": keep.display_name,
-                           "drop_id": drop.id,
-                           "drop_name": drop.display_name},
-            }},
-            upsert=True)
+        self.store.upsert_identity_suggestion(s_id, {
+            "person_a_id": keep.id,
+            "person_b_id": drop.id,
+            "label": drop.display_name,
+            "source": "import",
+            "confidence": 0.6,
+            "reason": reason,
+            "status": "pending",
+            "detail": {"keep_id": keep.id,
+                       "keep_name": keep.display_name,
+                       "drop_id": drop.id,
+                       "drop_name": drop.display_name},
+        })
         return s_id
 
     def find_duplicate_people(self) -> list[tuple[Person, list[Person]]]:
@@ -259,14 +252,11 @@ class IdentityResolver:
             cleaned = repair_mojibake(name or "").lower()
             return re.sub(r"[^\w]", "", cleaned, flags=re.UNICODE)
 
-        counts: dict[str, int] = defaultdict(int)
-        for row in self.store.db.relationship_events.aggregate([
-                {"$group": {"_id": "$person_id", "n": {"$sum": 1}}}]):
-            counts[row["_id"]] = int(row["n"])
+        counts: dict[str, int] = self.store.event_counts_by_person()
 
         groups: dict[str, list[Person]] = defaultdict(list)
-        for p in self.store.db.people.find({}):
-            if getattr(p, "is_user", False):
+        for p in self.store.all_people_docs():
+            if p.get("is_user"):
                 continue
             k = key(p.get("display_name", ""))
             if k:
@@ -318,10 +308,7 @@ class IdentityResolver:
             query = {"sender_label": {"$regex": f"^{re.escape(label)}$",
                                       "$options": "i"}}
 
-        rows = list(self.store.db.messages.find(
-            query, {"content": 1, "sent_at": 1, "conversation_id": 1,
-                    "source": 1, "sender_label": 1}
-        ).sort("sent_at", -1).limit(limit))
+        rows = self.store.search_messages(query, limit=limit)
 
         samples = []
         for row in rows:
@@ -341,8 +328,9 @@ class IdentityResolver:
                 "sender_label": row.get("sender_label") or "",
             })
 
-        existing_msgs = self.store.db.messages.count_documents(
-            {"person_id": doc.get("person_a_id")}) if doc.get("person_a_id") else 0
+        existing_msgs = (self.store.count_messages_matching(
+            {"person_id": doc.get("person_a_id")})
+            if doc.get("person_a_id") else 0)
         return {
             "kind": kind,
             "existing": side(existing),
@@ -350,8 +338,8 @@ class IdentityResolver:
                 "name": label, "id": None, "aliases": [],
                 "interactions": None, "last_seen": None},
             "counts": {
-                "conflicting_messages": self.store.db.messages.count_documents(
-                    query),
+                "conflicting_messages":
+                    self.store.count_messages_matching(query),
                 "existing_messages": existing_msgs,
             },
             "samples": samples,
@@ -359,18 +347,17 @@ class IdentityResolver:
 
     def list_suggestions(self) -> list[dict]:
         out = []
-        for d in self.store.db.identity_suggestions.find({"status": "pending"}):
+        for d in self.store.list_identity_suggestions(status="pending"):
             d["id"] = d.pop("_id")
             out.append(d)
         return out
 
     def accept_suggestion(self, suggestion_id: str, merge: bool) -> dict:
-        doc = self.store.db.identity_suggestions.find_one({"_id": suggestion_id})
+        doc = self.store.get_identity_suggestion(suggestion_id)
         if not doc:
             return {"ok": False, "error": "suggestion not found"}
         if not merge:
-            self.store.db.identity_suggestions.update_one(
-                {"_id": suggestion_id}, {"$set": {"status": "rejected"}})
+            self.store.set_identity_suggestion_status(suggestion_id, "rejected")
             return {"ok": True, "status": "rejected"}
         person = self.store.get_person(doc["person_a_id"])
         if not person:
@@ -379,16 +366,14 @@ class IdentityResolver:
         drop_id = doc.get("person_b_id")
         if drop_id:
             result = self.merge_people(person.id, drop_id)
-            self.store.db.identity_suggestions.update_one(
-                {"_id": suggestion_id},
-                {"$set": {"status": "accepted" if result.get("ok") else "pending"}})
+            self.store.set_identity_suggestion_status(
+                suggestion_id, "accepted" if result.get("ok") else "pending")
             return {"ok": bool(result.get("ok")), "status": "merged",
                     "person_id": person.id, "merged": result}
         person.aliases = list(dict.fromkeys(
             person.aliases + [doc.get("label", "")]))
         self.store.update_person(person)
-        self.store.db.identity_suggestions.update_one(
-            {"_id": suggestion_id}, {"$set": {"status": "accepted"}})
+        self.store.set_identity_suggestion_status(suggestion_id, "accepted")
         return {"ok": True, "status": "accepted", "person_id": person.id}
 
     # ------------------------------------------------------------------
@@ -416,21 +401,14 @@ class IdentityResolver:
             "documents": "person_id", "memories": "person_id",
             "relationship_events": "person_id",
         }
-        moved = 0
-        for coll, field in reassignments.items():
-            res = self.store.db[coll].update_many(
-                {field: remove_id}, {"$set": {field: keep_id}})
-            moved += res.modified_count
-        self.store.db.calendar_events.update_many(
-            {"person_ids": remove_id}, {"$set": {"person_ids": [keep_id]}})
+        moved = self.store.reassign_person_records(keep_id, remove_id, reassignments)
+        self.store.replace_array_member("calendar_events", "person_ids",
+                                        remove_id, keep_id)
         # Merge profiles: keep the richer interaction history by recompute
-        self.store.db.profiles.delete_one({"_id": remove_id})
-        self.store.db.people.delete_one({"_id": remove_id})
-        self.store.db.conversations.update_many(
-            {"participant_ids": remove_id},
-            {"$pull": {"participant_ids": remove_id}})
-        self.store.db.conversations.update_many(
-            {"participant_ids": keep_id}, {"$addToSet": {"participant_ids": keep_id}})
+        self.store.delete_profile(remove_id)
+        self.store.delete_person(remove_id)
+        self.store.pull_array_member("conversations", "participant_ids",
+                                      remove_id)
         return {"ok": True, "records_moved": moved, "person_id": keep_id}
 
 

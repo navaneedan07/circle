@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from circle.domain.models import SourceType
 from circle.parsers.common import ParsedContact
+from tests.store_probe import count
 
 
 class TestIdentityResolution:
@@ -85,10 +86,8 @@ class TestIdentityResolution:
         assert clean_store.get_person(b.id) is None
         keep = clean_store.get_person(a.id)
         assert "Aravinth K" in keep.aliases
-        assert clean_store.db.memories.count_documents(
-            {"person_id": a.id}) == 1
-        assert clean_store.db.messages.count_documents(
-            {"person_id": a.id}) == 1
+        assert count(clean_store, "memories", {"person_id": a.id}) == 1
+        assert count(clean_store, "messages", {"person_id": a.id}) == 1
 
     def test_merge_same_person_rejected(self, resolver, clean_store):
         p, _ = resolver.resolve_sender("Solo", SourceType.WHATSAPP)
@@ -189,8 +188,8 @@ class TestDuplicatePeople:
         assert clean_store.get_person(drops[0].id) is None
         assert clean_store.count_people() == 1
         # events from both records now belong to the survivor
-        assert clean_store.db.relationship_events.count_documents(
-            {"person_id": keep.id}) == 6
+        assert count(clean_store, "relationship_events",
+                      {"person_id": keep.id}) == 6
         assert resolver.list_suggestions() == []
 
     def test_rejecting_a_duplicate_keeps_both_people(self, resolver,

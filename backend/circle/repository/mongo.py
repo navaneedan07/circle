@@ -27,95 +27,16 @@ from circle.repository.base import (
     MemoryRepo, MessageRepo, NoteRepo, PersonRepo, ProcessingStateRepo,
     ProfileRepo, SettingRepo, SourceRepo, VoiceRepo,
 )
+from circle.repository.serde import (
+    _SUFFIXES, clean_profile_topics as _clean_profile_topics,
+    content_terms as _content_terms, deserialize as _deserialize,
+    person_name_cache as _PERSON_NAME_CACHE, refresh_person_names,
+    serialize as _serialize,
+)
 
 _TEXT_INDEX_FIELDS = ["text", "summary", "topics"]
 
 log = logging.getLogger("circle.repository")
-
-# Pure function words only. Content verbs ("meet", "tell", "discuss", "find")
-# are deliberately NOT here: in chat exports they carry real meaning.
-_STOPWORDS = frozenset("""
-a about after all also an and any are as at be been but by can did do does for
-from had has have he her him his how i if in into is it its me my no not of on
-or our out she should so some such than that the their them then there these
-they this to too up us was we were what when where which who whom why will with
-would you your
-""".split())
-
-# Crude suffix stripping so "learning" also matches "learn", "models" -> "model".
-_SUFFIXES = ("ing", "ed", "es", "s")
-
-
-def _content_terms(query: str) -> list[str]:
-    """Meaningful, de-duplicated search terms (lowercase, stemmed)."""
-    raw = re.sub(r"[^\w\s]", " ", query or "").lower().split()
-    out: list[str] = []
-    for w in raw:
-        if w in _STOPWORDS or len(w) < 3 or w.isdigit():
-            continue
-        stem = w
-        if len(w) > 5:
-            for suf in _SUFFIXES:
-                if w.endswith(suf) and len(w) - len(suf) >= 3:
-                    stem = w[: -len(suf)]
-                    break
-        if stem and stem not in out:
-            out.append(stem)
-    return out
-
-
-def _serialize(obj: Any) -> Any:
-    """Pydantic -> mongo-safe dict (keep datetimes, drop None ids)."""
-    if hasattr(obj, "model_dump"):
-        data = obj.model_dump(mode="json")
-        if data.get("id") is None:
-            data.pop("id", None)
-        return data
-    return obj
-
-
-def _deserialize(model, data: Optional[dict]):
-    if data is None:
-        return None
-    data = dict(data)
-    oid = data.pop("_id", None)
-    if oid is not None and "id" in getattr(model, "model_fields", {}) \
-            and data.get("id") is None:
-        data["id"] = oid
-    try:
-        return model.model_validate(data)
-    except Exception:
-        # Tolerate legacy/odd docs: strip unknown keys
-        known = set(model.model_fields)
-        data = {k: v for k, v in data.items() if k in known}
-        return model.model_validate(data)
-
-
-def _clean_profile_topics(profile) -> None:
-    """Drop system events, interjections and the person's own name from topics.
-
-    Profiles were written before the noise filter existed, so they still carry
-    "Reacted", "Naa" and "Dei" as topics. Cleaning on read means all 336
-    existing profiles get fixed without a re-import, and no consumer can
-    reintroduce the noise by reading the collection directly.
-    """
-    from circle.relationship.metrics import _is_noise_topic
-    person = _PERSON_NAME_CACHE.get(profile.person_id)
-    own = set()
-    if person:
-        low = person.lower()
-        own.add(low)
-        # "Shrijesh Kannan" also has to suppress the topic "Shrijesh".
-        own.update(p for p in re.split(r"[^a-z0-9]+", low) if len(p) >= 3)
-    profile.topics = [t for t in profile.topics
-                      if not _is_noise_topic(t.topic, own)]
-    profile.active_topics = [t for t in profile.active_topics
-                             if not _is_noise_topic(t.topic, own)]
-
-
-# Filled in by MongoStore so profile reads can suppress a person's own name
-# as a "topic" without a second query per profile.
-_PERSON_NAME_CACHE: dict[str, str] = {}
 
 
 class MongoStore:
@@ -136,12 +57,10 @@ class MongoStore:
     def _refresh_person_names(self) -> None:
         """Cache display names so profile reads can drop self-named topics."""
         try:
-            _PERSON_NAME_CACHE.clear()
-            for doc in self.db.people.find(
-                    {}, {"display_name": 1, "aliases": 1}):
-                name = str(doc.get("display_name") or "").strip().lower()
-                if name:
-                    _PERSON_NAME_CACHE[str(doc["_id"])] = name
+            refresh_person_names(
+                (str(doc["_id"]), doc.get("display_name"))
+                for doc in self.db.people.find(
+                    {}, {"display_name": 1, "aliases": 1}))
         except Exception as e:  # never block startup on a cache
             log.warning("person name cache unavailable: %s", e)
 
@@ -889,3 +808,92 @@ class MongoStore:
 
     def set_setting(self, key: str, value: Any) -> None:
         self.db.app_settings.update_one({"_id": key}, {"$set": {"value": value}}, upsert=True)
+
+    # ================= Identity suggestions =========================
+    # Exposed through the store so the storage choice stays inside the
+    # repository layer instead of leaking into the resolver.
+    def upsert_identity_suggestion(self, suggestion_id: str,
+                                   fields: dict[str, Any]) -> None:
+        self.db.identity_suggestions.update_one(
+            {"_id": suggestion_id}, {"$set": fields}, upsert=True)
+
+    def get_identity_suggestion(self, suggestion_id: str) -> Optional[dict]:
+        return self.db.identity_suggestions.find_one({"_id": suggestion_id})
+
+    def list_identity_suggestions(self, status: str = "pending") -> list[dict]:
+        return list(self.db.identity_suggestions.find({"status": status}))
+
+    def set_identity_suggestion_status(self, suggestion_id: str,
+                                       status: str) -> None:
+        self.db.identity_suggestions.update_one(
+            {"_id": suggestion_id}, {"$set": {"status": status}})
+
+    def event_counts_by_person(self) -> dict[str, int]:
+        """Total interactions per person, for duplicate-name grouping."""
+        return {str(r["_id"]): int(r["n"]) for r in
+                self.db.relationship_events.aggregate([
+                    {"$group": {"_id": "$person_id", "n": {"$sum": 1}}},
+                    {"$sort": {"n": -1}}])}
+
+    def all_people_docs(self) -> list[dict]:
+        return list(self.db.people.find({}))
+
+    def get_message(self, message_id: str) -> Optional[dict]:
+        """The raw stored message document (the evidence panel shows it as-is)."""
+        doc = self.db.messages.find_one({"_id": message_id})
+        if doc is not None:
+            doc.pop("_id", None)
+        return doc
+
+    def list_notes_recent(self, limit: int = 100) -> list[Note]:
+        return [_deserialize(Note, d) for d in
+                self.db.notes.find().sort("noted_at", -1).limit(limit)]
+
+    def list_voice_recent(self, limit: int = 50) -> list[VoiceRecording]:
+        return [_deserialize(VoiceRecording, d) for d in
+                self.db.voice_recordings.find().sort("imported_at", -1).limit(limit)]
+
+    def update_memories_person(self, record_id: str, person_id: str) -> int:
+        """Re-point one record's memories at a person (voice associate)."""
+        return self.db.memories.update_many(
+            {"record_id": record_id}, {"$set": {"person_id": person_id}}).modified_count
+
+    def search_messages(self, query: dict, limit: int = 50) -> list[dict]:
+        """Messages matching a match clause, newest first."""
+        return list(self.db.messages.find(query, {"embedding": 0})
+                    .sort("sent_at", -1).limit(limit))
+
+    def count_messages_matching(self, query: dict) -> int:
+        return self.db.messages.count_documents(query)
+
+    def reassign_person_records(self, keep_id: str, remove_id: str,
+                                collections: dict[str, str]) -> int:
+        """Move every record's person pointer from one person to another."""
+        moved = 0
+        for coll, field in collections.items():
+            moved += self.db[coll].update_many(
+                {field: remove_id}, {"$set": {field: keep_id}}).modified_count
+        return moved
+
+    def replace_array_member(self, coll: str, field: str, old: str,
+                             new: str) -> int:
+        """Swap one element inside a document array (Mongo $set on arrays)."""
+        return self.db[coll].update_many(
+            {field: old}, {"$set": {field: [new]}}).modified_count
+
+    def pull_array_member(self, coll: str, field: str, value: str) -> int:
+        """Remove one element from a document array (Mongo $pull)."""
+        return self.db[coll].update_many(
+            {field: value}, {"$pull": {field: value}}).modified_count
+
+    def delete_profile(self, person_id: str) -> int:
+        return self.db.profiles.delete_one({"_id": person_id}).deleted_count
+
+    def close(self) -> None:
+        try:
+            self.client.close()
+        except Exception:
+            pass
+
+    def engine_name(self) -> str:
+        return "mongodb-atlas" if self.settings.mongo_atlas else "mongodb"

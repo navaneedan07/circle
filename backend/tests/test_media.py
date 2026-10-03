@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from circle.domain.models import MediaKind
 from circle.parsers import whatsapp as whatsapp_parser
+from tests.store_probe import find, find_one
 from circle.security.files import FileSecurityError
 from circle.security.media import (
     media_filename_key, media_root, resolve_served_path,
@@ -185,7 +186,7 @@ class TestMediaIngestion:
         # the message itself now points at its attachment
         msgs = clean_store.list_media_for_message(img.message_id)
         assert [m.id for m in msgs] == [img.id]
-        owner = clean_store.db.messages.find_one({"_id": img.message_id})
+        owner = find_one(clean_store, "messages", {"_id": img.message_id})
         assert img.id in owner["media_ids"]
 
     def test_voice_note_becomes_searchable_memory(self, media_pipeline,
@@ -196,8 +197,8 @@ class TestMediaIngestion:
         })
         media_pipeline.process_path(z)
         voice = clean_store.find_media_by_filename_key("ptt-20240101-wa0002.opus")
-        mems = [m for m in clean_store.db.memories.find(
-            {"record_id": voice.id, "kind": "voice"})]
+        mems = find(clean_store, "memories",
+                     {"record_id": voice.id, "kind": "voice"})
         assert mems, "voice transcript must be indexed as evidence"
         assert mems[0]["person_id"] == voice.person_id
 
@@ -248,8 +249,9 @@ class TestMediaIngestion:
         chat = _write(tmp_path / "Aravinth_chat.txt",
                       "12/28/23, 8:42 PM - Aravinth Kumar: IMG-20240101-WA0001.jpg (file attached)\n")
         assert media_pipeline.process_path(chat).status == "COMPLETED"
-        msg = clean_store.db.messages.find_one({"attachments.filename_key":
-                                                "img-20240101-wa0001.jpg"})
+        msg = find_one(clean_store, "messages",
+                        {"attachments": {"$elemMatch": {"filename_key":
+                                                       "img-20240101-wa0001.jpg"}}})
         assert msg is not None
         assert msg["content"] == ""
 

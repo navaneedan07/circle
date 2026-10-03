@@ -1,6 +1,14 @@
-"""Repository interfaces. The rest of the app depends only on these,
-so the storage engine (local MongoDB vs Atlas Vector Search) can change
-without touching parsers, RAG, or the API."""
+"""Repository interfaces.
+
+The per-entity ABCs below describe the shape of each area. They are
+documentation rather than enforcement: the concrete stores historically used
+flat method names (``list_people``, not ``PersonRepo.list``), so both
+``MongoStore`` and ``SQLiteStore`` implement the flat surface directly and
+type-hint against ``Store``.
+
+``Store`` is what callers actually depend on, which is what makes the storage
+engine swappable without touching parsers, RAG, or the API.
+"""
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -177,3 +185,8 @@ class SettingRepo(ABC):
     def get(self, key: str) -> Any: ...
     @abstractmethod
     def set(self, key: str, value: Any) -> None: ...
+
+
+# The store the rest of the app talks to. Both engines satisfy it; see
+# circle/repository/factory.py for how one is chosen.
+Store = Any

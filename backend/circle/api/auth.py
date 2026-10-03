@@ -160,6 +160,14 @@ def is_sensitive(path: str) -> bool:
 
 async def access_key_middleware(request: Request, call_next):
     """Reject unauthenticated remote requests before they reach a route."""
+    # CORS preflight must never be refused: the browser sends OPTIONS before
+    # the real request, and by spec it carries no credentials and no Origin
+    # authorisation can be attached to it. This middleware runs before the CORS
+    # layer (middleware added later wraps earlier ones), so without this an
+    # OPTIONS gets a 401, the browser never issues the actual request, and every
+    # cross-origin call from a hosted UI fails while curl still looks healthy.
+    if request.method == "OPTIONS":
+        return await call_next(request)
     allowed, reason = check(request)
     if allowed:
         return await call_next(request)

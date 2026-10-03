@@ -1,9 +1,9 @@
 """Check that this machine can actually run Circle, and say how to fix it.
 
 The usual first-run failure is not a bug in Circle: it is one prerequisite
-that was skipped. A missing MongoDB, a stopped Ollama, or a model that was
-never pulled all look the same from the UI (nothing works), so this script
-checks each one and prints the exact command that fixes it.
+that was skipped. An unwritable archive folder, a stopped Ollama, or a model
+that was never pulled all look the same from the UI (nothing works), so this
+script checks each one and prints the exact command that fixes it.
 
     .venv/Scripts/python scripts/doctor.py
     .venv/Scripts/python scripts/doctor.py --json
@@ -93,6 +93,38 @@ def check_python() -> Check:
         "Install Python 3.11 or newer from python.org, then rebuild .venv.")
 
 
+def check_archive(settings) -> Check:
+    """The store must be openable and writable.
+
+    SQLite is a file, so the failure mode is a folder that cannot be created
+    or written rather than a service that is not running. Checked by opening
+    the real database, because that is the only honest test.
+    """
+    backend = (getattr(settings, "storage_backend", "sqlite") or "sqlite").lower()
+    if backend.startswith("mongo"):
+        return check_mongodb(settings.database_url)
+    path = settings.sqlite_path()
+    try:
+        import sqlite3
+        path.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(str(path))
+        try:
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS doctor_probe (id INTEGER PRIMARY KEY)")
+            conn.execute("DROP TABLE doctor_probe")
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001
+        return Check(
+            "Archive (SQLite)", FAIL,
+            f"cannot write {path} ({_short(exc)})",
+            "Check that the folder exists and you have permission to write to "
+            "it, or set SQLITE_FILE to a path you own.")
+    exists = " (existing archive)" if path.exists() else ""
+    return Check("Archive (SQLite)", OK, f"{path}{exists}")
+
+
 def check_mongodb(database_url: str) -> Check:
     try:
         import pymongo
@@ -178,7 +210,7 @@ def run_checks() -> Report:
         report.checks.append(check_node())
         return report
 
-    report.checks.append(check_mongodb(settings.database_url))
+    report.checks.append(check_archive(settings))
 
     ollama_check, names = check_ollama(settings.ollama_url)
     report.checks.append(ollama_check)
@@ -223,7 +255,7 @@ def render(report: Report) -> str:
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
-        description="Check that MongoDB, Ollama, the models and Node are ready.")
+        description="Check that the local archive, Ollama, the models and Node are ready.")
     parser.add_argument("--json", action="store_true",
                         help="print the result as JSON instead of text")
     args = parser.parse_args(argv[1:])
