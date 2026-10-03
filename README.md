@@ -305,7 +305,11 @@ to watch and checking that everything is healthy.
 
 `serve.sh` creates the virtualenv, installs dependencies, builds the interface
 and starts the server. On first run it also generates an **access key** and
-writes it to `backend/.env`; keep that file private.
+writes it to `backend/.env`; keep that file private. Once the server answers,
+it opens `http://127.0.0.1:8000` in your browser. Set `CIRCLE_NO_BROWSER=1` to
+skip that (useful on a headless machine or in a script). Both launchers work
+from any directory and are safe to run again: the second run skips the steps
+it has already done.
 
 ### Prerequisites
 
