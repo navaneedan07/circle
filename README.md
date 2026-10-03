@@ -2,6 +2,9 @@
 
 > **Your conversations are scattered. Circle brings the context together and lets you ask about the people who matter to you.**
 
+Working on Circle? **[PROJECT.md](PROJECT.md)** is the engineering handoff: architecture,
+verified state, and the traps worth knowing before you change anything.
+
 Circle is a **private, local-first relationship intelligence application**. It unifies your
 scattered personal data — contacts, chats, email, calendars, notes and voice recordings —
 into one system where you can **select a person and ask natural-language questions** about
