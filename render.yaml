@@ -1,17 +1,25 @@
-# Circle — download page.
+# Circle — public site.
 #
-# Circle itself is a desktop application. This site exists only to explain it
-# and hand over the file: there is no server here, no database, no Python, and
-# nothing private. The app and your archive stay on your own machine.
+# Circle itself is a desktop application. This site has no server, no database
+# and nothing private; the app and the reader's archive stay on their machine.
+#
+# What it serves:
+#   site/  — a committed static download page. No build step, no JavaScript,
+#            nothing that can fail at deploy time, and no interface to keep in
+#            sync with a second copy.
 #
 # Deploy:
-#   1. Render > New > Blueprint. It reads this file from the repo root.
-#   2. Upload the built executable to site/downloads/ (see BUILDING.md);
-#      the button in site/index.html points at that filename.
+#   1. Upload the built executable to site/downloads/ as
+#      Circle-<version>-windows-x64.exe (see BUILDING.md) and commit.
+#      The filename is versioned, so a cached page can never offer a stale
+#      binary under a fresh name.
+#   2. Reapply this blueprint in the Render dashboard, then push.
+#      Blueprints are not re-read on every push -- this step is the reason a
+#      site can keep serving the previous configuration after a commit.
 #
-# Note the filename is versioned in two places on purpose: the download link
-# and the "about 105 MB" line. Bump both when cutting a release, so a cached
-# page can never offer a stale binary under a fresh name.
+# The interface is not deployed here. The application serves its own UI from
+# the same local process that holds the archive; an off-machine copy of that UI
+# would have no backend behind it.
 
 services:
   - type: web
@@ -20,7 +28,7 @@ services:
     # health check; those fields belong to long-running web services.
     runtime: static
 
-    # There is no package.json at the repo root, so nothing needs building:
+    # There is no package.json at the repo root and nothing to compile:
     # site/ is committed HTML.
     buildCommand: ""
 

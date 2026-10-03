@@ -66,19 +66,29 @@ The console window is deliberate: it is where a startup failure is visible.
 ## The download page
 
 `site/` is committed HTML with no build step. Render publishes it directly
-(see `render.yaml`).
+(see `render.yaml`). The application itself is not deployed there: it serves
+its own interface, and an off-machine copy of that interface would have no
+backend behind it.
 
 To publish a release, copy the built executable in and update the link:
 
 ```bash
 mkdir -p site/downloads
 cp backend/dist/Circle.exe site/downloads/Circle-0.1.0-windows-x64.exe
+git add -f site/downloads/Circle-0.1.0-windows-x64.exe   # downloads/ is gitignored
 ```
 
-Then bump the version in two places in `site/index.html` — the download
-filename and the stated size. Both are written by hand on purpose: a version
-that only appears in one of them produces a page offering a stale binary under
-a fresh name, or a size that no longer matches what people download.
+Then bump the version in `site/index.html` — the download filename and the
+stated size — and in `frontend/src/version.ts`, which the in-app download
+link reads. Both are written by hand on purpose: a version that only appears in
+one of them produces a page offering a stale binary under a fresh name, or a
+size that no longer matches what people download.
+
+**A commit alone does not change the deployed site.** Render blueprints are
+not re-read on every push, so after changing `render.yaml` (or switching what
+is published) you must open the service in the dashboard and reapply the
+blueprint. Until you do, the site keeps serving the configuration it was last
+given — which is the usual reason a change appears not to have worked.
 
 ## The archive
 

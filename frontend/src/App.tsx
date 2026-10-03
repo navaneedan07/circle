@@ -7,7 +7,25 @@ import ImportsPage from "./pages/ImportsPage";
 import SettingsPage from "./pages/SettingsPage";
 import FirstRun from "./pages/FirstRun";
 import ConnectPage from "./pages/ConnectPage";
+import HostedPage from "./pages/HostedPage";
 import { api, getConnection } from "./api";
+
+/**
+ * True when this page is being served by the reader's own Circle.
+ *
+ * Circle is one desktop application: the same local process serves the
+ * interface and holds the archive. Only a loopback origin can be that process.
+ * Anywhere else -- a static host, a shared link -- is a copy of the interface
+ * with no backend behind it, so it shows the download page instead of a
+ * connection error the reader cannot act on.
+ */
+const RUNS_ON_OWN_MACHINE = [
+  "localhost",
+  "127.0.0.1",
+  "[::1]",
+  "::1",
+  "",
+].includes(window.location.hostname);
 
 /** Reports the open person upward so search can be scoped to them. */
 function PersonRoute() {
@@ -32,6 +50,13 @@ function PersonRoute() {
 }
 
 export default function App() {
+  // Before any network call: off-machine, there is nothing to talk to.
+  if (!RUNS_ON_OWN_MACHINE) return <HostedPage />;
+
+  return <CircleApp />;
+}
+
+function CircleApp() {
   const [firstRun, setFirstRun] = useState<boolean | null>(null);
   const location = useLocation();
   const personId = location.pathname.startsWith("/person/")

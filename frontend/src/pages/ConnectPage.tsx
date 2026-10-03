@@ -12,16 +12,9 @@ import { api, AuthError, loadConnection, saveConnection } from "../api";
 
 type Status = "checking" | "ok" | "needs_key" | "unreachable" | "no_model";
 
-/**
- * True when this page is served by the user's own Circle.
- *
- * Circle serves the interface from the same local process that holds the
- * archive, so same-origin is the backend unless the page was opened somewhere
- * else entirely. Only a loopback hostname counts as "this machine".
- */
-const SAME_ORIGIN_IS_BACKEND = ["localhost", "127.0.0.1", "[::1]", ""].includes(
-  window.location.hostname
-);
+// This screen is only ever reached on the reader's own machine: App.tsx routes
+// every non-loopback origin to the download page, so there is no hosted case to
+// branch on here and no address the reader could usefully paste in.
 
 export default function ConnectPage({
   onConnected,
@@ -124,9 +117,7 @@ export default function ConnectPage({
             ? "Your archive stays on your own machine. This key only proves the browser is allowed to ask it questions. Circle prints it when it starts."
             : status === "no_model"
               ? "Circle answers questions with a local model. It runs on your machine and nothing is sent anywhere."
-              : SAME_ORIGIN_IS_BACKEND
-                ? "Circle is not answering. If the app is running, leave the address blank; if you opened this page somewhere else, paste the local address it printed when it started."
-                : "This page was opened somewhere other than your own Circle. Open Circle and use the window it opens for you."}
+              : "Circle is not answering. If the app is running on this computer, leave the address blank; if it printed an address when it started, paste that here."}
         </p>
 
         {(status === "unreachable" || status === "needs_key") && (
@@ -144,9 +135,7 @@ export default function ConnectPage({
                 className="mono mt-2 w-full border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-muted focus:border-line-strong"
               />
               <p className="mt-2 text-xs leading-5 text-muted">
-                {SAME_ORIGIN_IS_BACKEND
-                  ? "Leave empty when Circle is running on this computer."
-                  : "The address Circle printed when it started."}
+                Leave empty when Circle is running on this computer.
               </p>
             </div>
 
@@ -177,19 +166,17 @@ export default function ConnectPage({
               >
                 {busy ? "Checking" : "Connect"}
               </button>
-              {SAME_ORIGIN_IS_BACKEND && (
-                <button
-                  onClick={() => {
-                    setBaseUrl("");
-                    setAccessKey("");
-                    saveConnection({ baseUrl: "", accessKey: "" });
-                    void probe();
-                  }}
-                  className="border border-ink px-5 py-2.5 text-xs font-medium text-ink hover:bg-ink hover:text-paper"
-                >
-                  Use this computer
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  setBaseUrl("");
+                  setAccessKey("");
+                  saveConnection({ baseUrl: "", accessKey: "" });
+                  void probe();
+                }}
+                className="border border-ink px-5 py-2.5 text-xs font-medium text-ink hover:bg-ink hover:text-paper"
+              >
+                Use this computer
+              </button>
             </div>
           </div>
         )}
