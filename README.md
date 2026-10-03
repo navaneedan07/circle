@@ -311,6 +311,18 @@ skip that (useful on a headless machine or in a script). Both launchers work
 from any directory and are safe to run again: the second run skips the steps
 it has already done.
 
+Before starting, the launcher runs a **first-run check** of MongoDB, Ollama,
+both models and Node. If something is missing it prints the exact command to
+fix it and stops, rather than starting an app where nothing works. Run it on
+its own any time:
+
+```bash
+cd backend
+.venv/Scripts/python scripts/doctor.py          # add --json to script it
+```
+
+Set `CIRCLE_SKIP_DOCTOR=1` to start without the check.
+
 ### Prerequisites
 
 | Need | Why | Install |
@@ -489,7 +501,7 @@ cd backend
 .venv/Scripts/python -m pytest tests/ -q
 ```
 
-410 tests cover: all parsers (happy path **and** edge cases), ZIP security (zip-slip,
+428 tests cover: all parsers (happy path **and** edge cases), ZIP security (zip-slip,
 traversal, bombs), duplicate detection, identity resolution (no silent merges),
 duplicate-person review, relationship metrics (explainable status), RAG citation
 validation (fabricated citations rejected), deterministic counting intents

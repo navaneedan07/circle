@@ -79,6 +79,20 @@ if not exist "%FRONTEND_DIR%\dist\index.html" (
   popd
 )
 
+REM Check the prerequisites before starting. A missing MongoDB or a model that
+REM was never pulled otherwise shows up as a UI where nothing works, which
+REM reads as "Circle is broken". Print the exact fix instead.
+REM CIRCLE_SKIP_DOCTOR=1 starts anyway.
+if not defined CIRCLE_SKIP_DOCTOR (
+  "%VENV_PY%" "%~dp0doctor.py"
+  if errorlevel 1 (
+    echo Circle is not ready to start yet. Fix the items above, then run this again.
+    echo To start anyway, set CIRCLE_SKIP_DOCTOR=1.
+    pause
+    exit /b 1
+  )
+)
+
 REM A shared key is generated automatically so that if this machine is later
 REM exposed through a tunnel, the archive is not readable by anyone who finds
 REM the URL. .env is gitignored. Generated with the venv Python so the same

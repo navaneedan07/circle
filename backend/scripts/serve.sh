@@ -72,6 +72,18 @@ if [ ! -f "$FRONTEND_DIR/dist/index.html" ]; then
   fi
 fi
 
+# Check the prerequisites before starting. A missing MongoDB or a model that
+# was never pulled otherwise shows up as a UI where nothing works, which reads
+# as "Circle is broken". Print the exact fix instead. CIRCLE_SKIP_DOCTOR=1
+# starts anyway (useful for a managed deployment that checks health itself).
+if [ -z "${CIRCLE_SKIP_DOCTOR:-}" ]; then
+  if ! "$VENV_PY" "$SCRIPT_DIR/doctor.py"; then
+    echo "Circle is not ready to start yet. Fix the items above, then run this again."
+    echo "To start anyway, set CIRCLE_SKIP_DOCTOR=1."
+    exit 1
+  fi
+fi
+
 # A shared key is generated automatically so that if the user later exposes
 # this machine through a tunnel, the archive is not readable by anyone who
 # finds the URL. It lives in .env, which is gitignored. Generated with Python
