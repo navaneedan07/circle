@@ -1,0 +1,165 @@
+/* Circle UI: a flat archival ledger theme.
+   Paper and ink, hairline rules, square corners, one accent, no ornament. */
+
+@import "tailwindcss";
+
+/* Semantic palette. Warm paper, never pure white; warm ink, never pure black. */
+:root {
+  --paper: #e9e3d6;
+  --surface: #f4efe3;
+  --ink: #1b1914;
+  /* muted must clear 4.5:1 on BOTH paper and surface */
+  --muted: #6b6558;
+  /* hairline: decorative only. line-strong carries the 3:1 UI boundary. */
+  --line: #d5cebf;
+  --line-strong: #868176;
+  --accent: #77301f;
+  --accent-contrast: #f4efe3;
+  --moss: #3f6349;
+  --ochre: #7a5c1c;
+  --bronze: #85582b;
+  color-scheme: light;
+}
+
+.dark {
+  --paper: #171510;
+  --surface: #201d17;
+  --ink: #e9e3d6;
+  --muted: #a49c8a;
+  /* hairline: decorative only. line-strong carries the 3:1 UI boundary. */
+  --line: #3b362e;
+  --line-strong: #726757;
+  --accent: #d98b6a;
+  --accent-contrast: #171510;
+  --moss: #7fb08d;
+  --ochre: #c9a24a;
+  --bronze: #c98a5a;
+  color-scheme: dark;
+}
+
+@theme {
+  /* Fonts: system stacks only. Nothing is fetched from the network. */
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino,
+    "Book Antiqua", Georgia, serif;
+  --font-mono: ui-monospace, "Cascadia Mono", Consolas, "SFMono-Regular",
+    Menlo, monospace;
+
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-moss: var(--moss);
+  --color-ochre: var(--ochre);
+  --color-bronze: var(--bronze);
+}
+
+body {
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* Imported messages are full of bare URLs; break them so they never widen
+     the page. This is a safety net; individual views also set break-words. */
+  overflow-wrap: break-word;
+}
+
+/* Square corners everywhere, including native form controls. */
+input,
+select,
+textarea,
+button,
+fieldset {
+  border-radius: 0;
+}
+
+/* Square scrollbars, muted. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+}
+
+/* Custom classes live in the components layer so Tailwind utilities
+   (text-ink, text-muted, hover:text-accent) still win when they are applied
+   to the same element. Unlayered rules would beat every utility. */
+@layer components {
+  /* One shared rule style: an uppercase mono eyebrow label. */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* An eyebrow that carries ink instead of the muted default. */
+  .eyebrow-ink {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+
+  .serif {
+    font-family: var(--font-serif);
+  }
+
+  .mono {
+    font-family: var(--font-mono);
+  }
+}
+
+/* Keyboard focus must be visible everywhere: the app previously had no focus
+   styling at all, so a keyboard user tabbed through a fully styled page with
+   no indication of where they were. A solid 2px ink ring is legible on both
+   themes and never depends on a colour pair that could fail contrast. */
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* Rows and panels are clickable surfaces; the ring sits inside so it is not
+   clipped by an overflow-hidden ancestor. */
+.focus-inset:focus-visible {
+  outline-offset: -2px;
+}
+
+/* Never suppress the ring for keyboard users; only for pointer interaction. */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Screen-reader-only utility (Tailwind provides sr-only; this is the visible
+   on focus variant used by the skip link). */
+.sr-only-focusable:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}

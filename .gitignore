@@ -1,0 +1,43 @@
+# --- secrets: never commit ---
+.env
+backend/.env
+*.key
+*.pem
+
+# --- python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# --- node ---
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# --- local personal data (never commit imported/private data) ---
+Circle-data/
+backend/Circle-data/
+backend/processed/
+backend/failed/
+backend/quarantine/
+backend/tmp/
+*.wav
+*.mp3
+*.m4a
+*.ogg
+
+# --- editor / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+.venv/.installed
+backend/.installed
+
+# --- my scratch browser-probe scripts ---
+frontend/*.tmp.mjs
+frontend/*.tmp.png
+frontend/*.tsbuildinfo

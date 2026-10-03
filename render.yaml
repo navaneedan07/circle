@@ -1,0 +1,28 @@
+# Circle — static web UI for Render.
+#
+# This serves ONLY the web interface. The archive, the database and the model
+# all stay on your own machine; the browser reaches them through the tunnel you
+# start. Nothing private is deployed here.
+#
+# Render: New > Static Site
+#   Repository:       your fork of circle
+#   Build command:    npm ci && npm run build --prefix frontend
+#   Publish directory: frontend/dist
+#   Environment:      (none)
+#
+# Then:
+#   1. add your Render URL to CORS_ORIGINS in the backend's .env
+#   2. start the tunnel on the machine running Circle
+#   3. open the Render URL and paste the tunnel address + access key
+
+services:
+  - type: web
+    name: circle-ui
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build --prefix frontend
+    staticPublishPath: ./frontend/dist
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+    healthCheckPath: /
