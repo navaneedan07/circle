@@ -50,8 +50,13 @@ class Settings(BaseSettings):
     rag_prep_evidence_chars: int = 280
     rag_prep_total_evidence_chars: int = 1700
 
-    # Import roots. Empty = created under ./Circle-data on first run.
+    # Import roots. Empty means "the user has not chosen one yet": Circle
+    # creates no folder and watches nothing until they do.
     import_root: str = ""
+    # Circle's own folder: the archive, processed/ and working files. Always
+    # ours, never a subfolder of whatever the user asked us to read.
+    work_root: str = ""
+    data_home_dir: str = ""
     processed_root: str = ""
     failed_root: str = ""
     quarantine_root: str = ""
@@ -107,30 +112,47 @@ class Settings(BaseSettings):
     allow_remote: bool = False
 
     # ---- derived roots -------------------------------------------------
-    def root_dir(self) -> Path:
-        return Path(self.import_root).expanduser().resolve() if self.import_root else (
-            Path.cwd() / "Circle-data"
-        ).resolve()
+    def root_dir(self) -> Optional[Path]:
+        """The folder Circle reads from, or None until the user picks one.
+
+        Circle does not choose a folder for you. Picking one silently means
+        creating directories nobody asked for, and the first-run screen has
+        nothing to ask about because the answer is already decided.
+        """
+        if not self.import_root:
+            return None
+        return Path(self.import_root).expanduser().resolve()
+
+    def work_dir(self) -> Path:
+        """Circle's own folder, where the archive and working files live.
+
+        Independent of the import folder: that one belongs to the user, this
+        one is ours. Created on demand, never guessed at import time.
+        """
+        if self.work_root:
+            return Path(self.work_root).expanduser().resolve()
+        return self.data_home() / "circle-data"
+
+    def data_home(self) -> Path:
+        """Base for our own folders, outside whatever the user pointed us at."""
+        return Path(self.data_home_dir).expanduser().resolve() \
+            if self.data_home_dir else (Path.home() / "Circle")
 
     def processed_dir(self) -> Path:
-        return Path(self.processed_root).resolve() if self.processed_root else self.root_dir().parent / "processed"
+        return Path(self.processed_root).resolve() if self.processed_root else self.work_dir() / "processed"
 
     def failed_dir(self) -> Path:
-        return Path(self.failed_root).resolve() if self.failed_root else self.root_dir().parent / "failed"
+        return Path(self.failed_root).resolve() if self.failed_root else self.work_dir() / "failed"
 
     def quarantine_dir(self) -> Path:
-        return Path(self.quarantine_root).resolve() if self.quarantine_root else self.root_dir().parent / "quarantine"
+        return Path(self.quarantine_root).resolve() if self.quarantine_root else self.work_dir() / "quarantine"
 
     def temp_dir(self) -> Path:
-        return self.root_dir().parent / "tmp"
+        return self.work_dir() / "tmp"
 
     def data_dir(self) -> Path:
-        """Where Circle keeps its own state (the SQLite archive lives here).
-
-        Deliberately a sibling of the import folder, never a subfolder of it:
-        the watcher walks the import root, and the archive is not an export.
-        """
-        return self.root_dir().parent / "circle-archive"
+        """Where the SQLite archive lives."""
+        return self.work_dir() / "circle-archive"
 
     def sqlite_path(self) -> Path:
         """Full path to the SQLite archive file."""
@@ -138,14 +160,23 @@ class Settings(BaseSettings):
         return raw if raw.is_absolute() else self.data_dir() / raw
 
     def root_is_managed(self) -> bool:
-        """True when the primary import root is Circle's own folder.
+        """True when the import root is inside Circle's own work folder.
 
         Folders the user points Circle at (Google Drive, Downloads, a USB
         backup) are theirs: we read them and leave them alone. Only our own
         managed folder is reorganized after import.
         """
+        root = self.root_dir()
+        if root is None:
+            return False
         from circle.integration.cloudfolder import classify_folder
-        return classify_folder(self.root_dir()) == "local"
+        if classify_folder(root) != "local":
+            return False
+        try:
+            root.relative_to(self.work_dir())
+            return True
+        except (ValueError, OSError):
+            return False
 
     def should_archive(self, path: Path) -> bool:
         """Whether an imported file may be moved into processed/.
@@ -155,10 +186,11 @@ class Settings(BaseSettings):
         root stays exactly where it is. Duplicate suppression is by content
         checksum, so leaving files in place costs nothing on rescan.
         """
-        if not self.root_is_managed():
+        root = self.root_dir()
+        if root is None or not self.root_is_managed():
             return False
         try:
-            Path(path).resolve().relative_to(self.root_dir())
+            Path(path).resolve().relative_to(root)
             return True
         except (ValueError, OSError):
             return False

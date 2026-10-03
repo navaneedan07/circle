@@ -60,7 +60,7 @@ def rescan() -> dict:
     ctx = get_context()
     n = ctx.watcher.rescan()
     ctx.broker.publish("sync", {"action": "rescan", "queued": n})
-    return {"queued": n, "root": str(ctx.watcher.root),
+    return {"queued": n, "root": str(ctx.watcher.root or ""),
             "roots": [str(p) for p in ctx.watcher.roots]}
 
 
@@ -88,7 +88,8 @@ def watch_folders() -> dict:
     return {
         "folders": folders,
         "cloud_drive": cloudfolder.google_drive_install(),
-        "managed_root": ctx.settings.should_archive(ctx.watcher.root),
+        "managed_root": bool(ctx.watcher.root
+                             and ctx.settings.should_archive(ctx.watcher.root)),
         # Files in a folder the user owns are read in place, never moved.
         "archives_files": ctx.settings.root_is_managed(),
     }
@@ -168,7 +169,7 @@ def get_settings_route() -> dict:
     ctx = get_context()
     s = ctx.settings
     return {
-        "import_root": str(ctx.watcher.root),
+        "import_root": str(ctx.watcher.root or ""),
         "import_roots": [str(p) for p in ctx.watch_folders()],
         "watch_folders": [_folder_dto(ctx, p) for p in ctx.watch_folders()],
         "archives_files": s.root_is_managed(),
@@ -223,9 +224,14 @@ def bootstrap_info() -> dict:
     ctx = get_context()
     first_run = ctx.store.get_setting("onboarded") is not True
     roots = ctx.watch_folders()
+    # "layout" is only meaningful once a folder exists. Until then the answer
+    # is an empty list, which is what the setup screen asks about.
+    layout = ([str(roots[0] / s) for s in ctx.settings.SOURCE_SUBFOLDERS]
+              if roots else [])
     return {
-        "first_run": first_run,
-        "layout": [str(roots[0] / s) for s in ctx.settings.SOURCE_SUBFOLDERS],
+        "first_run": first_run or not roots,
+        "needs_folder": not roots,
+        "layout": layout,
         "roots": [str(p) for p in roots],
         "health": ctx.health,
         "cloud_drive": cloudfolder.google_drive_install(),
@@ -241,26 +247,39 @@ class BootstrapIn(BaseModel):
 @router.post("/bootstrap")
 def bootstrap(payload: BootstrapIn) -> dict:
     ctx = get_context()
-    if payload.import_root.strip():
+    chosen = payload.import_root.strip()
+    if not chosen:
+        # Nothing to watch is a valid answer, but finishing setup with no
+        # folder at all is usually a misclick, so say so rather than silently
+        # watching nothing.
+        if not payload.watch_folders:
+            raise HTTPException(400, "choose a folder for Circle to read")
+    if chosen:
         # env var wins for the process; write .env-style override file
-        root = Path(payload.import_root.strip()).expanduser()
-        try:
-            root.mkdir(parents=True, exist_ok=True)
-        except OSError as e:
-            raise HTTPException(400, f"cannot create folder: {e}")
-        ctx.settings.import_root = str(root.resolve())
-        _persist_env("IMPORT_ROOT", str(root.resolve()))
+        root = Path(chosen).expanduser()
+        if not root.is_absolute():
+            raise HTTPException(400, "use a full path, for example "
+                                    r"G:\My Drive\ChatBackups")
+        root = root.resolve()
+        if not root.is_dir():
+            raise HTTPException(400, "that folder does not exist: " + str(root))
+        ctx.settings.import_root = str(root)
+        _persist_env("IMPORT_ROOT", str(root))
     # Rebuild the root list from scratch, then apply any extra folders the
     # user chose on the setup screen (a Drive backup folder, a USB drive).
     try:
-        ctx.watcher.set_roots([ctx.settings.root_dir()], rescan=False)
+        ctx.watcher.set_roots(
+            ([ctx.settings.root_dir()] if ctx.settings.root_dir() else []),
+            rescan=False)
         ctx.pipeline.watch_roots = list(ctx.watcher.roots)
         ctx.store.set_setting("watch_roots", [])
         for extra in payload.watch_folders:
             candidate = Path(extra.strip().strip('"')).expanduser()
             if not candidate.is_absolute():
                 continue
-            candidate.mkdir(parents=True, exist_ok=True)
+            if not candidate.is_dir():
+                log.warning("skipping watch folder %s: not found", candidate)
+                continue
             ctx.add_watch_folder(candidate.resolve())
     except Exception as e:
         log.warning("applying watch folders failed: %s", e)
@@ -269,9 +288,10 @@ def bootstrap(payload: BootstrapIn) -> dict:
         ctx.watcher.rescan()
     except Exception as e:
         log.warning("rescan after root change failed: %s", e)
-    if payload.mark_done:
+    if payload.mark_done and ctx.watch_folders():
         ctx.store.set_setting("onboarded", True)
-    return {"ok": True, "root": str(ctx.watcher.root),
+    return {"ok": True,
+            "root": str(ctx.watcher.root or "") if ctx.watcher.root else "",
             "roots": [str(p) for p in ctx.watch_folders()],
             "first_run": ctx.store.get_setting("onboarded") is not True}
 
@@ -320,7 +340,10 @@ def voice_audio(rec_id: str):
     if not rec:
         raise HTTPException(404, "recording not found")
     safe_name = Path(rec.filename).name
-    for root in (ctx.settings.processed_dir(), ctx.settings.root_dir()):
+    search_in = [ctx.settings.processed_dir()]
+    if ctx.settings.root_dir():
+        search_in.append(ctx.settings.root_dir())
+    for root in search_in:
         if not root.exists():
             continue
         for p in root.rglob(safe_name):

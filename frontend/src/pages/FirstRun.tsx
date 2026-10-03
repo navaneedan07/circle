@@ -99,24 +99,37 @@ export default function FirstRun({ onDone }: { onDone: () => void }) {
                   exports, and Circle reads them.
                 </p>
                 <div>
-                  <label className="eyebrow block">Circle folder</label>
+                  <label className="eyebrow block">
+                    Folder to read
+                    <span className="ml-2 normal-case tracking-normal text-moss">
+                      required
+                    </span>
+                  </label>
                   <input
                     value={root}
                     onChange={(e) => setRoot(e.target.value)}
-                    placeholder="Leave empty to use the default"
+                    onKeyDown={(e) => e.key === "Enter" && root.trim() && addCandidate(root)}
+                    placeholder="G:\My Drive\ChatBackups"
                     className="mono mt-2 w-full border border-line bg-paper px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-muted focus:border-line-strong"
                   />
                   <p className="mt-2 text-xs leading-5 text-muted">
-                    Circle&apos;s own working folder. Subfolders such as
-                    whatsapp/, telegram/, voice/ and calendar/ are created here
-                    automatically.
+                    The folder your chat and email exports already live in.
+                    Circle reads the files where they are and never moves,
+                    renames or deletes them, so this folder belongs to you.
+                  </p>
+                  <p className="mt-2 text-xs leading-5 text-muted">
+                    Circle does not create a folder for you. It also never
+                    makes empty subfolders inside this one &mdash; a dozen
+                    empty directories in a synced Drive backup would sync
+                    straight back to Google.
                   </p>
                 </div>
                 <button
                   onClick={() => setStep("folders")}
-                  className="w-full bg-ink py-3 text-xs font-medium uppercase tracking-[0.16em] text-paper hover:bg-accent"
+                  disabled={!root.trim()}
+                  className="w-full bg-ink py-3 text-xs font-medium uppercase tracking-[0.16em] text-paper hover:bg-accent disabled:opacity-40"
                 >
-                  Choose what to watch
+                  Continue
                 </button>
               </div>
             )}

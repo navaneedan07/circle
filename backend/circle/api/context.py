@@ -102,7 +102,7 @@ class AppContext:
             try:
                 self.watcher.start(rescan=True)
                 health["watcher"] = {"running": True,
-                                     "root": str(self.watcher.root),
+                                     "root": str(self.watcher.root or ""),
                                      "roots": [str(p) for p in self.watcher.roots],
                                      "folder_count": len(self.watcher.roots)}
             except Exception as e:
@@ -112,7 +112,7 @@ class AppContext:
             health["watcher"] = {"running": False,
                                  "detail": "disabled by configuration"}
 
-        health["imports"] = {"root": str(self.watcher.root),
+        health["imports"] = {"root": str(self.watcher.root or ""),
                              "roots": [str(p) for p in self.watcher.roots],
                              "cloud_drive": cloudfolder.google_drive_install(),
                              "processed": str(self.settings.processed_dir()),
@@ -197,7 +197,7 @@ class AppContext:
         jobs = self.store.count_jobs_by_status()
         return {
             "watcher_running": self.watcher.stats.get("running", False),
-            "root": str(self.watcher.root),
+            "root": str(self.watcher.root or ""),
             "roots": [str(p) for p in self.watcher.roots],
             "folder_count": len(self.watcher.roots),
             "files": {
@@ -231,8 +231,13 @@ def _roots_from_config(settings: Settings, store: Any) -> list[Path]:
     raw = [str(p) for p in stored if str(p).strip()] if stored else []
     if not raw:
         raw = [str(p) for p in settings.extra_watch_roots()]
-    roots: list[Path] = [settings.root_dir()]
-    seen = {str(roots[0]).lower()}
+    # No import root means no folder has been chosen yet: watch nothing rather
+    # than inventing one. The first-run screen asks.
+    roots: list[Path] = []
+    primary = settings.root_dir()
+    if primary is not None:
+        roots.append(primary)
+    seen = {str(roots[0]).lower()} if roots else set()
     for entry in raw:
         try:
             resolved = Path(entry).expanduser().resolve()

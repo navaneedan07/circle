@@ -220,9 +220,9 @@ export type SearchResult = {
  * Where the backend lives.
 
  * Normally the UI is served by the backend itself, so every path is relative
- * and no configuration is needed. When the UI is hosted separately (a static
- * host) and the backend runs on the user's own machine behind a tunnel, the
- * user pastes that address once and it is remembered here.
+ * and no configuration is needed. The address is only remembered so that a
+ * browser which somehow lost track of its own local backend can be pointed
+ * back at it.
  * ------------------------------------------------------------------------- */
 
 const CONNECTION_KEY = "circle-connection";
@@ -267,7 +267,7 @@ export function getConnection(): Connection {
   return connection;
 }
 
-/** Full URL for an API path, honouring a configured remote backend. */
+/** Full URL for an API path, honouring a configured backend address. */
 export function apiUrl(path: string): string {
   return `${connection.baseUrl}${path}`;
 }
@@ -300,19 +300,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init,
     });
   } catch {
-    // fetch only rejects on network/CORS failure: the tunnel is down, or the
-    // address is wrong, or this origin is not in CORS_ORIGINS.
+    // fetch only rejects on network failure: the app is not running, the
+    // address is wrong, or the port is blocked.
     throw new AuthError(
       connection.baseUrl
-        ? `Cannot reach Circle at ${connection.baseUrl}. Is the tunnel running?`
+        ? `Cannot reach Circle at ${connection.baseUrl}. Is the app running?`
         : "Cannot reach the Circle backend.",
       false
     );
   }
-  // A hosted UI (the Render site) rewrites unknown paths to index.html, so a
-  // wrong or missing address returns 200 with HTML rather than a JSON error.
-  // Reading that as JSON would surface a raw parser message; say what is
-  // actually wrong instead.
+  // A static host rewrites unknown paths to index.html, so a wrong or missing
+  // address returns 200 with HTML rather than a JSON error. Reading that as
+  // JSON would surface a raw parser message; say what is actually wrong.
   const contentType = res.headers.get("content-type") || "";
   if (contentType.includes("text/html")) {
     throw new AuthError(
@@ -465,6 +464,8 @@ export const api = {
   bootstrap: () =>
     request<{
       first_run: boolean;
+      /** True until the user has named at least one folder to read. */
+      needs_folder: boolean;
       layout: string[];
       roots?: string[];
       health: unknown;

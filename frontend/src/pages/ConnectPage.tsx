@@ -1,13 +1,11 @@
 /* First run, and the recovery path.
 
-Circle can be hosted two ways:
-  1. The backend serves the UI (normal local use) -- nothing to configure.
-  2. The UI is hosted separately and the backend runs on this machine behind
-     a tunnel -- the user pastes that address and the access key once.
+Circle is one local application. It serves this page itself, so in normal use
+there is nothing to configure at all: the address box below is only a recovery
+aid for the case where the app is running but this browser lost track of it.
 
-This screen covers both the "cannot reach it" and "needs the key" cases, and
-also guides a new user through the one thing that cannot be automated: getting
-the Gemma model onto their machine.
+This screen also covers the one thing that cannot be automated: getting the
+Gemma model onto the machine.
 */
 import { useEffect, useState } from "react";
 import { api, AuthError, loadConnection, saveConnection } from "../api";
@@ -15,12 +13,11 @@ import { api, AuthError, loadConnection, saveConnection } from "../api";
 type Status = "checking" | "ok" | "needs_key" | "unreachable" | "no_model";
 
 /**
- * True when this page is NOT served by the user's own Circle.
+ * True when this page is served by the user's own Circle.
  *
- * On the hosted UI (the Render site) same-origin is a static host with no API
- * behind it, so "leave the address blank" would never work: a tunnel address
- * is required. Only trust a loopback hostname, since that is the one case
- * where same-origin really is the backend.
+ * Circle serves the interface from the same local process that holds the
+ * archive, so same-origin is the backend unless the page was opened somewhere
+ * else entirely. Only a loopback hostname counts as "this machine".
  */
 const SAME_ORIGIN_IS_BACKEND = ["localhost", "127.0.0.1", "[::1]", ""].includes(
   window.location.hostname
@@ -53,7 +50,7 @@ export default function ConnectPage({
         setDetail(
           loadConnection().accessKey
             ? "That access key was not accepted. Check it against the one Circle printed at startup."
-            : "This Circle is shared and needs its access key."
+            : "Circle needs the access key it printed at startup."
         );
         return;
       }
@@ -124,12 +121,12 @@ export default function ConnectPage({
 
         <p className="mt-3 text-sm leading-6 text-muted">
           {status === "needs_key"
-            ? "Your archive stays on your own machine. This key only proves the browser is allowed to ask it questions."
+            ? "Your archive stays on your own machine. This key only proves the browser is allowed to ask it questions. Circle prints it when it starts."
             : status === "no_model"
               ? "Circle answers questions with a local model. It runs on your machine and nothing is sent anywhere."
               : SAME_ORIGIN_IS_BACKEND
-                ? "If Circle is running on this computer, leave the address blank. If you opened this page from somewhere else, paste the address your Circle printed when it started."
-                : "This page is only the interface. Your archive stays on your own machine, so paste the address your Circle printed when it started (it looks like a tunnel address), then its access key."}
+                ? "Circle is not answering. If the app is running, leave the address blank; if you opened this page somewhere else, paste the local address it printed when it started."
+                : "This page was opened somewhere other than your own Circle. Open Circle and use the window it opens for you."}
         </p>
 
         {(status === "unreachable" || status === "needs_key") && (
@@ -142,14 +139,14 @@ export default function ConnectPage({
                 id="base-url"
                 value={baseUrl}
                 onChange={(e) => setBaseUrl(e.target.value)}
-                placeholder="https://your-tunnel-address"
+                placeholder="http://127.0.0.1:8000"
                 autoComplete="off"
                 className="mono mt-2 w-full border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-muted focus:border-line-strong"
               />
               <p className="mt-2 text-xs leading-5 text-muted">
                 {SAME_ORIGIN_IS_BACKEND
                   ? "Leave empty when Circle is running on this computer."
-                  : "Where Circle is running on your own machine, not this page."}
+                  : "The address Circle printed when it started."}
               </p>
             </div>
 
@@ -162,7 +159,7 @@ export default function ConnectPage({
                 type="password"
                 value={accessKey}
                 onChange={(e) => setAccessKey(e.target.value)}
-                placeholder="Only if your Circle was shared"
+                placeholder="Printed at startup"
                 autoComplete="off"
                 className="mono mt-2 w-full border border-line bg-surface px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-muted focus:border-line-strong"
               />
@@ -241,14 +238,6 @@ export default function ConnectPage({
                 <span className="text-ink">Ollama</span> must be running for
                 answers. Start the app and leave it open.
               </li>
-              {!SAME_ORIGIN_IS_BACKEND && (
-                <li>
-                  <span className="text-ink">Tunnel</span> must be running so
-                  this page can reach your machine:
-                  <code className="mono"> cloudflared tunnel --url http://127.0.0.1:8000</code>.
-                  Copy the address it prints into the field above.
-                </li>
-              )}
               <li>
                 Both are local services. Nothing is uploaded to run them.
               </li>

@@ -151,11 +151,14 @@ def pipeline(clean_store, resolver, fake_embedder, fake_llm, tmp_path):
     # production for Circle's own folder. Folders the user owns (Google Drive,
     # Downloads) are covered separately in test_watch_folders.py.
     settings.import_root = str(tmp_path)
+    # tmp_path is Circle's own work folder here, so archiving behaves as it
+    # does in production. Declared, not inferred.
+    settings.work_root = str(tmp_path)
     settings.processed_root = str(tmp_path / "processed")
     settings.failed_root = str(tmp_path / "failed")
     settings.quarantine_root = str(tmp_path / "quarantine")
-    for d in (settings.root_dir(), settings.processed_dir(),
-              settings.failed_dir(), settings.quarantine_dir()):
+    for d in (settings.processed_dir(), settings.failed_dir(),
+              settings.quarantine_dir()):
         d.mkdir(parents=True, exist_ok=True)
     return IngestionPipeline(store=clean_store, resolver=resolver,
                              embedder=fake_embedder, llm=fake_llm,

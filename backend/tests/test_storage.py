@@ -432,11 +432,20 @@ class TestFactory:
     def test_archive_lives_outside_the_import_folder(self, tmp_path):
         """The watcher walks the import root; the archive is not an export."""
         from circle.config import Settings
-        s = Settings(import_root=str(tmp_path / "Circle-data"))
+        exports = tmp_path / "exports"
+        exports.mkdir()
+        s = Settings(import_root=str(exports),
+                     work_root=str(tmp_path / "work"))
         archive = s.sqlite_path()
-        assert archive.parent == tmp_path / "circle-archive"
+        assert archive.parent == tmp_path / "work" / "circle-archive"
         assert s.root_dir() not in archive.parents
         assert archive.suffix == ".db"
+
+    def test_no_folder_chosen_means_no_root(self, tmp_path):
+        from circle.config import Settings
+        s = Settings(work_root=str(tmp_path / "work"))
+        assert s.root_dir() is None
+        assert s.sqlite_path().is_absolute()
 
 
 @pytest.mark.skipif(not os.environ.get("MONGO_TESTS"),

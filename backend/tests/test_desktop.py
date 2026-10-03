@@ -76,12 +76,20 @@ class TestDataLocation:
             monkeypatch.delenv(key, raising=False)
         made = desktop.prepare_environment()
         assert made.is_dir()
-        assert os.environ["IMPORT_ROOT"] == str(data / "imports")
         assert os.environ["SQLITE_FILE"] == str(data / "circle.db")
-        # The archive must live inside the data folder, never beside it in a
-        # place the watcher would treat as an export.
-        assert os.environ["SQLITE_FILE"].startswith(str(data))
         assert os.environ["STORAGE_BACKEND"] == "sqlite"
+
+    def test_no_import_folder_is_invented(self, monkeypatch, tmp_path):
+        """The launcher must not decide which folder the user reads.
+
+        Creating an "imports" folder here would both make a directory nobody
+        asked for and silently watch it, so the choice has to be the user's.
+        """
+        monkeypatch.setenv("CIRCLE_DATA_DIR", str(tmp_path / "home"))
+        monkeypatch.delenv("IMPORT_ROOT", raising=False)
+        desktop.prepare_environment()
+        assert "IMPORT_ROOT" not in os.environ
+        assert not (tmp_path / "home" / "imports").exists()
 
     def test_existing_environment_is_not_overwritten(self, monkeypatch, tmp_path):
         """A user who set IMPORT_ROOT in .env keeps their folder."""
@@ -114,3 +122,23 @@ class TestPortSelection:
         chosen = desktop.find_free_port(0)
         with socket.socket() as s:
             s.bind(("127.0.0.1", chosen))     # must not raise
+
+class TestSingleDataLocation:
+    """One install must live in one folder.
+
+    Deleting or backing up Circle is the promise that makes a local archive
+    feel safe. It only holds if the archive and the working folders agree.
+    """
+
+    def test_archive_and_working_folders_share_one_root(self, tmp_path, monkeypatch):
+        from circle.config import Settings
+
+        for name in ("SQLITE_FILE", "WORK_ROOT", "IMPORT_ROOT", "DATA_HOME_DIR"):
+            monkeypatch.delenv(name, raising=False)
+        monkeypatch.setenv("CIRCLE_DATA_DIR", str(tmp_path / "home"))
+        data = desktop.prepare_environment()
+
+        s = Settings(_env_file=None)
+        for path in (s.sqlite_path(), s.processed_dir(), s.failed_dir(),
+                     s.quarantine_dir(), s.temp_dir()):
+            assert str(path).startswith(str(data)), path

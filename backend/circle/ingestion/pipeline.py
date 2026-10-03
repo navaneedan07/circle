@@ -86,8 +86,9 @@ class IngestionPipeline:
         self.broker = broker
         self.settings = settings or get_settings()
         # Folders whose subfolder names identify the source (whatsapp/, ...).
-        self.watch_roots = watch_roots or ([self.settings.root_dir()]
-                                           + self.settings.extra_watch_roots())
+        self.watch_roots = watch_roots or (
+            ([self.settings.root_dir()] if self.settings.root_dir() else [])
+            + self.settings.extra_watch_roots())
 
     # ------------------------------------------------------------------
     # public entry

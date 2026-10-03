@@ -65,18 +65,23 @@ def app_data_dir() -> Path:
 
 
 def prepare_environment() -> Path:
-    """Point the app at a writable data folder before settings load."""
+    """Point the app at a writable data folder before settings load.
+
+    Deliberately does NOT set IMPORT_ROOT. Circle has no opinion about which
+    folder holds the user's exports; it asks on first run. Inventing an
+    "imports" folder here would create a directory the user never chose and
+    silently watch it, which is exactly the behaviour being removed.
+    """
     data = app_data_dir()
     data.mkdir(parents=True, exist_ok=True)
-    # IMPORT_ROOT is the folder whose exports get ingested. It defaults to a
-    # Circle-managed layout inside the data folder, so a fresh install works
-    # with no configuration at all.
-    os.environ.setdefault("IMPORT_ROOT", str(data / "imports"))
     os.environ.setdefault("SQLITE_FILE", str(data / "circle.db"))
+    # Without this the working folders resolved to ~/Circle/circle-data while
+    # the archive went to the data dir above, so one install was spread over two
+    # places and "delete Circle" would have left half of it behind.
+    os.environ.setdefault("WORK_ROOT", str(data))
     os.environ.setdefault("STORAGE_BACKEND", "sqlite")
     os.environ.setdefault("ACCESS_KEY", "")     # loopback only
     os.environ.setdefault("WATCHER_ENABLED", "true")
-    # Bundled builds carry no source tree, so the tests and tools are skipped.
     return data
 
 
@@ -136,6 +141,8 @@ def main() -> int:
     print(f"{APP_NAME} is starting.")
     print(f"  data:     {data}")
     print(f"  address:  {url}")
+    if settings.root_dir() is None:
+        print("  Choose a folder to read on the first screen.")
     print("  Your data never leaves this machine. Close this window to quit.")
 
     if os.environ.get("CIRCLE_NO_BROWSER") != "1":

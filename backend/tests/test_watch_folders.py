@@ -311,6 +311,9 @@ class TestWatchFolderApi:
         managed = tmp_path / "managed"
         drive = tmp_path / "My Drive" / "Backups"
         managed.mkdir()
+        # The folder exists already: Circle watches folders you point it at,
+        # it does not create them.
+        drive.mkdir(parents=True)
         ctx = ctx_mod.AppContext.build(settings=_settings(managed))
         ctx_mod._ctx = ctx
         client = TestClient(create_app())
@@ -319,7 +322,39 @@ class TestWatchFolderApi:
                 "watch_folders": [str(drive)], "mark_done": True}).json()
             assert out["ok"] is True
             assert str(drive.resolve()) in out["roots"]
-            assert drive.exists()
+        finally:
+            ctx_mod._ctx = None
+
+    def test_bootstrap_refuses_to_finish_with_no_folder(self, tmp_path):
+        """Finishing setup with nothing to watch is a misclick, not a choice."""
+        from fastapi.testclient import TestClient
+        from circle.api import context as ctx_mod
+        from circle.main import create_app
+
+        ctx = ctx_mod.AppContext.build(settings=_settings(tmp_path))
+        ctx_mod._ctx = ctx
+        client = TestClient(create_app())
+        try:
+            bad = client.post("/api/bootstrap", json={"mark_done": True})
+            assert bad.status_code == 400
+            assert "folder" in bad.json()["detail"].lower()
+        finally:
+            ctx_mod._ctx = None
+
+    def test_bootstrap_rejects_a_folder_that_does_not_exist(self, tmp_path):
+        from fastapi.testclient import TestClient
+        from circle.api import context as ctx_mod
+        from circle.main import create_app
+
+        ctx = ctx_mod.AppContext.build(settings=_settings(tmp_path))
+        ctx_mod._ctx = ctx
+        client = TestClient(create_app())
+        try:
+            bad = client.post("/api/bootstrap", json={
+                "import_root": str(tmp_path / "nope"), "mark_done": True})
+            assert bad.status_code == 400
+            assert "does not exist" in bad.json()["detail"]
+            assert not (tmp_path / "nope").exists(),                 "a rejected path must not be created as a side effect"
         finally:
             ctx_mod._ctx = None
 
@@ -327,6 +362,9 @@ class TestWatchFolderApi:
 def _settings(managed: Path):
     settings = get_settings().model_copy()
     settings.import_root = str(managed)
+    # "Managed" now means "inside Circle's own work folder". Tests have to
+    # say so explicitly, which is the point: the app must not assume it.
+    settings.work_root = str(managed.parent)
     settings.watcher_enabled = False
     settings.processed_root = str(managed.parent / "processed")
     settings.failed_root = str(managed.parent / "failed")
@@ -341,3 +379,61 @@ def test_extra_watch_roots_parses_env_style_lists(raw):
     settings.import_root = str(Path("managed"))
     # Unparseable/blank entries are dropped rather than raising.
     settings.extra_watch_roots()
+
+class TestCircleDoesNotCreateFolders:
+    """Circle must not make directories the user did not ask for.
+
+    A previous version created an import folder plus a dozen empty
+    per-source subfolders on startup. Inside a Google Drive backup that
+    syncs straight back to the user's Drive, and everywhere else it is a
+    dozen empty folders nobody can explain.
+    """
+
+    def test_startup_creates_no_import_folder(self, tmp_path):
+        settings = get_settings().model_copy()
+        settings.import_root = ""
+        settings.work_root = str(tmp_path / "work")
+        settings.processed_root = str(tmp_path / "work" / "processed")
+        settings.failed_root = str(tmp_path / "work" / "failed")
+        settings.quarantine_root = str(tmp_path / "work" / "quarantine")
+        settings.watcher_enabled = False
+
+        w = FolderWatcher(settings=settings)
+        w.start(rescan=False)
+        try:
+            assert w.roots == []
+            assert w.root is None
+            for sub in settings.SOURCE_SUBFOLDERS:
+                assert not (tmp_path / "work" / sub).exists(), sub
+        finally:
+            w.stop()
+
+    def test_watching_a_missing_folder_does_not_create_it(self, tmp_path):
+        missing = tmp_path / "not-here"
+        w = FolderWatcher(settings=_settings(tmp_path), roots=[missing])
+        w.start(rescan=False)
+        try:
+            assert not missing.exists(), "watching must not mkdir"
+            assert w.roots == [missing.resolve()]
+        finally:
+            w.stop()
+
+    def test_only_our_own_working_folders_are_created(self, tmp_path):
+        settings = get_settings().model_copy()
+        settings.import_root = ""
+        settings.work_root = str(tmp_path / "work")
+        settings.processed_root = str(tmp_path / "work" / "processed")
+        settings.failed_root = str(tmp_path / "work" / "failed")
+        settings.quarantine_root = str(tmp_path / "work" / "quarantine")
+        settings.watcher_enabled = False
+
+        w = FolderWatcher(settings=settings)
+        w.start(rescan=False)
+        try:
+            # processed/ and friends are ours: without them imports cannot
+            # report where a file went.
+            for d in (settings.processed_dir(), settings.failed_dir(),
+                      settings.quarantine_dir()):
+                assert d.is_dir(), d
+        finally:
+            w.stop()

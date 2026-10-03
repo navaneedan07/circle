@@ -78,8 +78,9 @@ class FolderWatcher:
                  roots: Optional[list[Path]] = None):
         self.settings = settings or get_settings()
         self.process_fn = process_fn
-        # roots[0] is the primary folder; `root` stays the back-compat alias.
-        self.roots: list[Path] = self._normalize(roots) or [self.settings.root_dir()]
+        # Empty until the user picks a folder. An empty list is a valid state,
+        # not a bug to paper over with a default nobody chose.
+        self.roots: list[Path] = self._normalize(roots)
         self._queue: "queue.Queue[Path]" = queue.Queue()
         self._seen: dict[str, float] = {}
         self._lock = threading.Lock()
@@ -108,9 +109,9 @@ class FolderWatcher:
         return out
 
     @property
-    def root(self) -> Path:
-        """Primary watch folder (kept for callers that only care about one)."""
-        return self.roots[0]
+    def root(self) -> Optional[Path]:
+        """Primary watch folder, or None when nothing has been chosen yet."""
+        return self.roots[0] if self.roots else None
 
     def set_roots(self, roots: list[Path], rescan: bool = True) -> list[Path]:
         """Replace the watched folders at runtime, without a restart.
@@ -118,7 +119,7 @@ class FolderWatcher:
         A running observer keeps watching folders that are still present, so
         swapping a Google Drive path does not lose events mid-import.
         """
-        new_roots = self._normalize(roots) or [self.settings.root_dir()]
+        new_roots = self._normalize(roots)
         previous = {str(p).lower() for p in self.roots}
         added = [p for p in new_roots if str(p).lower() not in previous]
         self.roots = new_roots
@@ -137,6 +138,8 @@ class FolderWatcher:
     # ------------------------------------------------------------------
     def start(self, rescan: bool = True) -> None:
         self._ensure_layout()
+        if not self.roots:
+            log.info("no watch folder chosen yet; waiting for the user to pick one")
         self._observer = Observer()
         self._observer.daemon = True
         for path in self.roots:
@@ -155,11 +158,13 @@ class FolderWatcher:
                  ", ".join(str(p) for p in self.roots))
 
     def _watch(self, observer: Observer, path: Path) -> None:
-        """Schedule one folder, creating it when it does not exist yet."""
-        try:
-            path.mkdir(parents=True, exist_ok=True)
-        except OSError as e:
-            log.warning("cannot create watch folder %s: %s", path, e)
+        """Schedule one folder that already exists.
+
+        A missing folder is skipped, not created: Circle reading the wrong
+        place is worse than Circle waiting until you point it somewhere real.
+        """
+        if not path.is_dir():
+            log.warning("skipping %s: not an existing folder", path)
             return
         key = str(path).lower()
         if key in self._scheduled:
@@ -373,16 +378,19 @@ class FolderWatcher:
 
     # ------------------------------------------------------------------
     def _ensure_layout(self) -> None:
-        root = self.settings.root_dir()
-        # Source subfolders are only created in Circle's own managed folder.
-        # A Google Drive folder belongs to the user: creating a dozen empty
-        # subfolders inside their synced backup would be rude and would then
-        # sync back to Drive.
-        if not self.settings.root_is_managed():
-            return
-        for sub in self.settings.SOURCE_SUBFOLDERS:
-            (root / sub).mkdir(parents=True, exist_ok=True)
-        for d in (root, self.settings.processed_dir(),
-                  self.settings.failed_dir(), self.settings.quarantine_dir(),
-                  self.settings.temp_dir()):
-            d.mkdir(parents=True, exist_ok=True)
+        """Create only the folders Circle owns.
+
+        Our own working folders (processed/, failed/, tmp/) are created because
+        the app cannot import without them. The folder the user asked us to
+        read is never created, and neither are the per-source subfolders: a
+        dozen empty directories appearing inside someone's backup is a change
+        they never asked for, and in a synced Drive folder it syncs straight
+        back to Google.
+        """
+        for d in (self.settings.work_dir(), self.settings.data_dir(),
+                  self.settings.processed_dir(), self.settings.failed_dir(),
+                  self.settings.quarantine_dir(), self.settings.temp_dir()):
+            try:
+                d.mkdir(parents=True, exist_ok=True)
+            except OSError as e:
+                log.warning("cannot create %s: %s", d, e)

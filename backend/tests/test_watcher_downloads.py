@@ -40,6 +40,10 @@ class TestWatcherSkipsPartials:
         watcher = FolderWatcher(settings=settings,
                                 process_fn=pipeline.process_path)
         watcher._ensure_layout()
+        # Circle no longer creates per-source subfolders, so the test
+        # does what a user does: makes the folder it drops files in.
+        (settings.root_dir() / "whatsapp").mkdir(parents=True,
+                                              exist_ok=True)
 
         partial = settings.root_dir() / "whatsapp" / "Unconfirmed 999.crdownload"
         partial.write_text(WA, encoding="utf-8")
@@ -58,6 +62,10 @@ class TestWatcherSkipsPartials:
         watcher = FolderWatcher(settings=settings,
                                 process_fn=pipeline.process_path)
         watcher._ensure_layout()
+        # Circle no longer creates per-source subfolders, so the test
+        # does what a user does: makes the folder it drops files in.
+        (settings.root_dir() / "whatsapp").mkdir(parents=True,
+                                              exist_ok=True)
         empty = settings.root_dir() / "whatsapp" / "still_downloading.txt"
         empty.write_text("", encoding="utf-8")
 
@@ -74,6 +82,10 @@ class TestWatcherSkipsPartials:
         watcher = FolderWatcher(settings=settings,
                                 process_fn=pipeline.process_path)
         watcher._ensure_layout()
+        # Circle no longer creates per-source subfolders, so the test
+        # does what a user does: makes the folder it drops files in.
+        (settings.root_dir() / "whatsapp").mkdir(parents=True,
+                                              exist_ok=True)
 
         final = settings.root_dir() / "whatsapp" / "WhatsApp Chat with X.zip"
         with zipfile.ZipFile(final, "w") as zf:
@@ -90,6 +102,10 @@ class TestWatcherSkipsPartials:
         settings = pipeline.settings
         watcher = FolderWatcher(settings=settings, process_fn=pipeline.process_path)
         watcher._ensure_layout()
+        # Circle no longer creates per-source subfolders, so the test
+        # does what a user does: makes the folder it drops files in.
+        (settings.root_dir() / "whatsapp").mkdir(parents=True,
+                                              exist_ok=True)
         (settings.root_dir() / "whatsapp" / "half.zip.part").write_text("x")
         (settings.root_dir() / "whatsapp" / "real_chat.txt").write_text(
             WA, encoding="utf-8")
