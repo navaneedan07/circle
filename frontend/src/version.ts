@@ -24,13 +24,11 @@ export const DOWNLOAD_PATH =
 /**
  * Base address of the published site, where the terms and privacy notice live.
  *
- * NOTE: this must match the address the Render static site actually serves.
- * The blueprint in render.yaml names the service `circle`, but the final host
- * name is only known once that service has been created and deployed -- so
- * confirm it here before release. The consent screen links to these pages; a
- * wrong host means the reader cannot read what they are agreeing to.
+ * This is the address the Render static site actually serves. It has to match
+ * reality: the in-app consent screen links to these pages, and a wrong host
+ * means the reader cannot read what they are agreeing to.
  */
-export const SITE_URL = "https://circle.onrender.com";
+export const SITE_URL = "https://circle-dh51.onrender.com";
 
 export const TERMS_URL = `${SITE_URL}/terms.html`;
 export const PRIVACY_URL = `${SITE_URL}/privacy.html`;

@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>How Circle works</title>
+    <meta
+      name="description"
+      content="What Circle actually does with your files, step by step: what it reads, how it decides who is who, how it answers, and what it never does."
+    />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+
+  <body>
+    <div class="wrap">
+      <header class="site">
+        <div>
+          <div class="mark"><a href="index.html">Circle</a></div>
+          <div class="tagline">a private record</div>
+        </div>
+        <nav class="site">
+          <a href="index.html">Home</a>
+          <a href="how-it-works.html" aria-current="page">How it works</a>
+          <a href="faq.html">FAQ</a>
+          <a href="privacy.html">Privacy</a>
+          <a href="terms.html">Terms</a>
+        </nav>
+      </header>
+
+      <main>
+        <h1 class="lede-title">How Circle works</h1>
+        <p class="lede">
+          A plain account of what the application does to your files, in what
+          order, and what it deliberately refuses to do.
+        </p>
+
+        <h2>1. You choose one folder</h2>
+        <p>
+          Circle watches exactly one folder, the one you pick. It is created by
+          you, filled by you, and Circle creates nothing inside it. If the
+          folder is a cloud drive, that is fine &mdash; it reads in place and
+          leaves your files where they are.
+        </p>
+
+        <h2>2. It looks at each file once</h2>
+        <p>
+          For every file that appears, Circle works out what it is, checks it
+          is a type it understands and not larger than a sensible limit, and
+          fingerprints it with a checksum. If it has seen that exact file
+          before, it skips it. That is why re-exporting your chats does not
+          duplicate anything.
+        </p>
+
+        <h2>3. It parses what it recognises</h2>
+        <table>
+          <tr>
+            <th>File</th>
+            <th>What Circle takes from it</th>
+          </tr>
+          <tr>
+            <td>WhatsApp export</td>
+            <td>Conversations, messages, senders, timestamps, attachments</td>
+          </tr>
+          <tr>
+            <td>Telegram export</td>
+            <td>Chats, messages, participants</td>
+          </tr>
+          <tr>
+            <td>Instagram / Meta export</td>
+            <td>
+              Each message thread separately, keyed by the thread folder, so
+              two conversations never collapse into one
+            </td>
+          </tr>
+          <tr>
+            <td>Email (<code>.mbox</code>, <code>.eml</code>)</td>
+            <td>Sender, recipients, subject, date, body</td>
+          </tr>
+          <tr>
+            <td>Calendar (<code>.ics</code>)</td>
+            <td>Events, times, attendees</td>
+          </tr>
+          <tr>
+            <td>Contacts (<code>.vcf</code>, CSV)</td>
+            <td>Names, numbers, email addresses</td>
+          </tr>
+          <tr>
+            <td>Documents and notes</td>
+            <td>Text, split into retrievable passages</td>
+          </tr>
+          <tr>
+            <td>Attachments</td>
+            <td>
+              Voice notes and images are copied into Circle's own media folder
+              and stored once, by content hash
+            </td>
+          </tr>
+        </table>
+        <p>
+          Most of a social data export is <em>not</em> conversations &mdash;
+          it is ad interests, account settings and thousands of photographs.
+          Circle skips that noise on purpose rather than filling your database
+          with it.
+        </p>
+
+        <h2>4. It works out who is who</h2>
+        <p>
+          The same person appears under a phone number in one export, a handle
+          in another and a display name in a third. Circle matches those into a
+          single person using contacts you have imported and the shared
+          identity of each thread.
+        </p>
+        <p>
+          When the evidence is genuinely ambiguous it does not guess. It files
+          the case as a suggestion and asks you, and it will not merge two
+          people on its own. <strong>You are always the one who decides who
+          counts as one person.</strong>
+        </p>
+
+        <h2>5. It builds a local index</h2>
+        <p>
+          Messages, contacts and events go into one SQLite database. Each
+          message and passage is also turned into a vector by a local embedding
+          model, so that a question can find things by meaning rather than only
+          by exact word.
+        </p>
+        <p>
+          This runs on your machine and is the slow part of a first import.
+          You can keep using Circle while it happens; a question asked
+          mid-import waits for the current batch rather than the whole run.
+        </p>
+
+        <h2>6. It answers a question</h2>
+        <p>
+          There are two kinds of question, and they are answered differently on
+          purpose.
+        </p>
+        <ul>
+          <li>
+            <strong>Counting questions</strong> &mdash; &ldquo;who do I talk to
+            most&rdquo;, &ldquo;how many messages last week&rdquo; &mdash; are
+            answered by counting your actual records in the database.
+          </li>
+          <li>
+            <strong>Everything else</strong> is answered by finding the most
+            relevant passages (by meaning and by keyword), then asking the local
+            model to answer using only those passages, citing each one.
+          </li>
+        </ul>
+        <p>
+          That split exists because asking a small model to count through 100,000
+          messages produces a confident, invented number. Counting is something
+          a database is simply better at.
+        </p>
+
+        <div class="callout">
+          <h3>The model is told to stay inside the evidence</h3>
+          <p class="muted">
+            The answer prompt contains only the passages Circle retrieved, and
+            requires citations. If the model produces no valid citation, the
+            answer is marked as insufficient rather than presented as fact. If
+            there is not enough to go on, Circle says so instead of guessing.
+          </p>
+        </div>
+
+        <h2>What it does not do</h2>
+        <ul>
+          <li>
+            It does not send your messages, your questions, or anything derived
+            from them to any server. There is no server to send them to.
+          </li>
+          <li>
+            It does not read the contents of files it does not recognise. It
+            skips them.
+          </li>
+          <li>
+            It does not edit, move or delete anything in your folder. Files are
+            only ever moved if they were already inside Circle's own working
+            directory.
+          </li>
+          <li>
+            It does not merge two people without you saying so, and it does not
+            make claims about anyone's emotional or mental state.
+          </li>
+        </ul>
+
+        <h2>Where things are kept</h2>
+        <table>
+          <tr>
+            <th>What</th>
+            <th>Where</th>
+          </tr>
+          <tr>
+            <td>Your archive and everything derived from it</td>
+            <td><code>Documents/Circle/circle.db</code></td>
+          </tr>
+          <tr>
+            <td>Copied media such as voice notes</td>
+            <td><code>Documents/Circle/media</code></td>
+          </tr>
+          <tr>
+            <td>Your settings, including the folder you chose</td>
+            <td><code>Documents/Circle/settings.json</code></td>
+          </tr>
+          <tr>
+            <td>Your original exports</td>
+            <td>Untouched, wherever you keep them</td>
+          </tr>
+        </table>
+        <p>
+          Removing Circle and deleting that folder removes everything it held.
+          There is no copy anywhere else and nothing to wait out.
+        </p>
+      </main>
+
+      <footer class="site">
+        <span>Circle &mdash; local-first relationship intelligence</span>
+        <span>
+          <a href="index.html">Home</a> &middot;
+          <a href="faq.html">FAQ</a> &middot;
+          <a href="privacy.html">Privacy</a> &middot;
+          <a href="terms.html">Terms</a>
+        </span>
+      </footer>
+    </div>
+  </body>
+</html>

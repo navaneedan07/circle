@@ -1,0 +1,196 @@
+/*
+ * One stylesheet for the whole site.
+ *
+ * These pages are committed HTML with no build step, on purpose: there is
+ * nothing here that can fail at deploy time. That rules out a bundler, but it
+ * does not rule out a shared file -- linking one is exactly as static as
+ * repeating the same block of CSS in five documents, and far easier to keep
+ * the pages looking like one site.
+ */
+
+:root {
+  --paper: #e9e3d6;
+  --ink: #1b1914;
+  --muted: #6b6558;
+  --line: #cdc4b0;
+  --accent: #4b5c3a;
+  --panel: #e2dbcb;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #171510;
+    --ink: #e9e3d6;
+    --muted: #a49c8a;
+    --line: #35312a;
+    --accent: #a3c08a;
+    --panel: #201d16;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.65;
+}
+
+a { color: inherit; }
+
+.wrap { max-width: 46rem; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+
+/* ---------------------------------------------------------------- header */
+
+header.site {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 1.25rem;
+}
+.mark { font-size: 1.05rem; letter-spacing: 0.22em; text-transform: uppercase; }
+.mark a { text-decoration: none; }
+.tagline { color: var(--muted); font-size: 0.85rem; margin-top: 0.35rem; }
+
+nav.site { display: flex; flex-wrap: wrap; gap: 0.35rem 1.1rem; font-size: 0.85rem; }
+nav.site a { color: var(--muted); text-decoration: none; border-bottom: 1px solid transparent; }
+nav.site a:hover, nav.site a:focus { color: var(--ink); border-bottom-color: var(--line); }
+nav.site a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--ink); }
+
+/* ------------------------------------------------------------ typography */
+
+h1 {
+  font-size: clamp(2rem, 6vw, 3rem);
+  line-height: 1.12;
+  margin: 2.75rem 0 1rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+h1.lede-title { margin-bottom: 0.75rem; }
+
+.lede { font-size: 1.1rem; color: var(--muted); max-width: 38rem; }
+
+h2 {
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+  margin: 3.25rem 0 0.9rem;
+}
+h3 { margin: 0 0 0.4rem; font-size: 1.02rem; font-weight: 600; }
+
+p { margin: 0 0 1rem; }
+ul, ol { padding-left: 1.15rem; }
+li { margin: 0.4rem 0; }
+ol.steps { padding-left: 1.3rem; }
+ol.steps li { margin: 0.85rem 0; }
+
+strong { font-weight: 600; }
+code {
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.88em;
+  border: 1px solid var(--line);
+  padding: 0.05rem 0.32rem;
+}
+
+small, .small { font-size: 0.85rem; }
+.muted { color: var(--muted); }
+
+/* --------------------------------------------------------------- buttons */
+
+.downloads { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1.75rem 0 0; }
+
+.btn {
+  display: inline-block;
+  border: 1px solid var(--ink);
+  padding: 0.8rem 1.35rem;
+  text-decoration: none;
+  font-size: 0.92rem;
+  background: var(--ink);
+  color: var(--paper);
+}
+.btn:hover, .btn:focus { background: var(--accent); border-color: var(--accent); }
+.btn.secondary { background: transparent; color: var(--ink); }
+.btn.secondary:hover, .btn.secondary:focus { background: var(--ink); color: var(--paper); }
+.btn[aria-disabled="true"] {
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--line);
+  pointer-events: none;
+}
+
+/* ----------------------------------------------------------------- cards */
+
+.grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+
+.card {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  padding: 1.15rem 1.35rem;
+}
+.card h3 { margin-top: 0; }
+.card p:last-child { margin-bottom: 0; }
+
+.note { color: var(--muted); font-size: 0.87rem; margin-top: 0.9rem; }
+
+.callout {
+  border: 1px solid var(--line);
+  padding: 1.15rem 1.4rem;
+  margin: 1.75rem 0;
+}
+.callout h3 { margin-top: 0; }
+.callout p:last-child { margin-bottom: 0; }
+.callout .muted { color: var(--muted); }
+
+/* ----------------------------------------------------------------- table */
+
+table { border-collapse: collapse; width: 100%; margin: 1.25rem 0; }
+th, td {
+  border: 1px solid var(--line);
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+  font-size: 0.9rem;
+}
+th { font-weight: 600; background: var(--panel); }
+
+/* ------------------------------------------------------------------- faq */
+
+.faq details {
+  border-bottom: 1px solid var(--line);
+  padding: 0.95rem 0;
+}
+.faq details:first-of-type { border-top: 1px solid var(--line); }
+.faq summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; color: var(--muted); font-weight: 400; }
+.faq details[open] summary::after { content: "\2212"; }
+.faq details > div { color: var(--muted); padding-top: 0.6rem; }
+.faq details > div > :last-child { margin-bottom: 0; }
+
+/* ---------------------------------------------------------------- footer */
+
+footer.site {
+  border-top: 1px solid var(--line);
+  margin-top: 4rem;
+  padding-top: 1.5rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  justify-content: space-between;
+}
+footer.site a { color: var(--muted); }

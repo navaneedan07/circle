@@ -9,94 +9,22 @@
       content="Circle is a local-first desktop application. Your messages, contacts and questions stay on your own machine. This is what that means in practice."
     />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <style>
-      :root {
-        --paper: #e9e3d6;
-        --ink: #1b1914;
-        --muted: #6b6558;
-        --line: #cdc4b0;
-        --accent: #4b5c3a;
-      }
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --paper: #171510;
-          --ink: #e9e3d6;
-          --muted: #a49c8a;
-          --line: #35312a;
-          --accent: #a3c08a;
-        }
-      }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        background: var(--paper);
-        color: var(--ink);
-        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-        line-height: 1.6;
-      }
-      a { color: inherit; }
-      .wrap { max-width: 46rem; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
-      header { border-bottom: 1px solid var(--line); padding-bottom: 1.5rem; }
-      .mark { font-size: 1.1rem; letter-spacing: 0.22em; text-transform: uppercase; }
-      .tagline { color: var(--muted); font-size: 0.85rem; margin-top: 0.4rem; }
-      h1 {
-        font-size: clamp(1.8rem, 5vw, 2.4rem);
-        line-height: 1.2;
-        margin: 3rem 0 0.5rem;
-        font-weight: 500;
-      }
-      .lede { color: var(--muted); font-size: 0.95rem; }
-      h2 {
-        font-size: 0.8rem;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: var(--muted);
-        font-weight: 600;
-        margin: 2.75rem 0 0.75rem;
-      }
-      ul { padding-left: 1.1rem; }
-      li { margin: 0.4rem 0; }
-      code {
-        font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
-        font-size: 0.88em;
-        border: 1px solid var(--line);
-        padding: 0.1rem 0.35rem;
-      }
-      .box {
-        border: 1px solid var(--line);
-        padding: 1.1rem 1.4rem;
-        margin: 1.5rem 0;
-      }
-      .box h3 { margin: 0 0 0.4rem; font-size: 1rem; }
-      .box p { margin: 0; color: var(--muted); }
-      .meta { color: var(--muted); font-size: 0.85rem; }
-      table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
-      th, td {
-        border: 1px solid var(--line);
-        padding: 0.5rem 0.7rem;
-        text-align: left;
-        vertical-align: top;
-        font-size: 0.9rem;
-      }
-      th { font-weight: 600; }
-      footer {
-        border-top: 1px solid var(--line);
-        margin-top: 4rem;
-        padding-top: 1.5rem;
-        color: var(--muted);
-        font-size: 0.85rem;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1rem;
-        justify-content: space-between;
-      }
-    </style>
+    <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <div class="wrap">
-      <header>
-        <div class="mark">Circle</div>
-        <div class="tagline">privacy</div>
+      <header class="site">
+        <div>
+          <div class="mark"><a href="index.html">Circle</a></div>
+          <div class="tagline">privacy</div>
+        </div>
+        <nav class="site">
+          <a href="index.html">Home</a>
+          <a href="how-it-works.html">How it works</a>
+          <a href="faq.html">FAQ</a>
+          <a href="privacy.html" aria-current="page">Privacy</a>
+          <a href="terms.html">Terms</a>
+        </nav>
       </header>
 
       <main>
@@ -197,7 +125,7 @@
         <p class="meta">Last updated: 4 October 2026</p>
       </main>
 
-      <footer>
+      <footer class="site">
         <span>Circle &mdash; local-first relationship intelligence</span>
         <span><a href="index.html">Home</a> &middot; <a href="terms.html">Terms</a></span>
       </footer>

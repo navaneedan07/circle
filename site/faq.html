@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FAQ &mdash; Circle</title>
+    <meta
+      name="description"
+      content="Common questions about Circle: what it needs, what it costs, what happens to your messages, whether it works offline, and how accurate it is."
+    />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+
+  <body>
+    <div class="wrap">
+      <header class="site">
+        <div>
+          <div class="mark"><a href="index.html">Circle</a></div>
+          <div class="tagline">a private record</div>
+        </div>
+        <nav class="site">
+          <a href="index.html">Home</a>
+          <a href="how-it-works.html">How it works</a>
+          <a href="faq.html" aria-current="page">FAQ</a>
+          <a href="privacy.html">Privacy</a>
+          <a href="terms.html">Terms</a>
+        </nav>
+      </header>
+
+      <main>
+        <h1 class="lede-title">Frequently asked questions</h1>
+        <p class="lede">
+          The questions people ask most, answered plainly, including the parts
+          that are awkward.
+        </p>
+
+        <div class="faq">
+          <details>
+            <summary>Does Circle upload my messages?</summary>
+            <div>
+              <p>
+                No. Circle has no account, no server and no analytics. Your
+                archive is a database file on your own disk, and the model that
+                answers questions runs on your own computer. The
+                <a href="privacy.html">privacy notice</a> lists exactly what is
+                downloaded and what is not.
+              </p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Does it work without the internet?</summary>
+            <div>
+              <p>
+                Yes, once set up. The only things Circle fetches from the
+                internet are the Ollama installer and the model weights, and
+                only after you click to allow it. After that, importing,
+                searching and asking all work offline.
+              </p>
+            </div>
+          </details>
+
+          <details>
+            <summary>What does it cost?</summary>
+            <div>
+              <p>
+                Nothing. There is no subscription, no API key and no usage
+                billing, because there is no hosted service being used.
+              </p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Does it need an account or password?</summary>
+            <div>
+              <p>No. There is no sign-in, because there is no service to sign in to.</p>
+            </div>
+          </details>
+
+          <details>
+            <summary>What does it need from my computer?</summary>
+            <div>
+              <p>
+                A 64-bit Windows machine, about 1 GB of free disk space for the
+                application, and several gigabytes more if Circle downloads the
+                models for you. A machine with 16 GB of RAM runs it comfortably;
+                a 4B model needs roughly 4 GB of that while answering.
+              </p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Will it modify or delete my export files?</summary>
+            <div>
+              <p>
+                No. Circle reads the folder you point it at in place. It only
+                ever moves a file if that file was already inside Circle's own
+                working directory, which a folder you chose will not be.
+              </p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Can I point it at Google Drive or OneDrive?</summary>
+            <div>
+              <p>
+                Yes, and many people do. Circle reads the folder where the drive
+                client has already synced it. If a file has not been downloaded
+                yet, Circle may take a moment longer on that file the first
+                time it reads it.
+              </p>
+            </div>
+          </details>
+
+          <details>
+            <summary>How accurate is it?</summary>
+            <div>
+              <p>
+                Counting questions are exact, because they are counted in the
+                database. Everything else is answered by a small language model
+                running on your own hardware, and it can be wrong. It also
+                sometimes answers correctly for the wrong reason. Treat answers
+                as a starting point, and follow the citations it gives to check
+                what it actually read.
+              </p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Will it merge two different people into one?</summary>
+            <div>
+              <p>
+                Not on its own. When Circle is unsure whether two records are
+                the same person it raises a suggestion and waits. Nothing is
+                merged until you confirm it, and you can undo a merge.
+              </p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Can other people see my archive?</summary>
+            <div>
+              <p>
+                Only anyone with access to your Windows account and your disk.
+                Circle serves its own interface on a loopback address that only
+                this machine can reach. It does not open a port on your network
+                and it does not share anything.
+              </p>
+            </div>
+          </details>
+
+          <details>
+            <summary>How do I delete everything?</summary>
+            <div>
+              <p>
+                Uninstall Circle, then delete the
+                <code>Documents/Circle</code> folder. Since nothing was ever
+                copied anywhere else, that is the whole deletion. Your original
+                exports are untouched.
+              </p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Does it work on Mac or Linux?</summary>
+            <div>
+              <p>
+                Not yet. The published installer is Windows only. The source is
+                open, and the parts that are platform-specific are small.
+              </p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Can I use a different model?</summary>
+            <div>
+              <p>
+                Yes. Circle uses whatever Ollama reports as installed; you can
+                choose another in Settings and it takes effect immediately.
+                Counting questions will not change quality &mdash; they are not
+                answered by the model at all.
+              </p>
+            </div>
+          </details>
+
+          <details>
+            <summary>Is the code available?</summary>
+            <div>
+              <p>
+                Yes. The project is open source and the repository link is in
+                the footer of every page.
+              </p>
+            </div>
+          </details>
+        </div>
+
+        <h2>Still unanswered?</h2>
+        <p>
+          Raise an issue on the project's repository. If the answer turns out to
+          be generally useful, it belongs in this page.
+        </p>
+      </main>
+
+      <footer class="site">
+        <span>Circle &mdash; local-first relationship intelligence</span>
+        <span>
+          <a href="index.html">Home</a> &middot;
+          <a href="how-it-works.html">How it works</a> &middot;
+          <a href="privacy.html">Privacy</a> &middot;
+          <a href="terms.html">Terms</a>
+        </span>
+      </footer>
+    </div>
+  </body>
+</html>

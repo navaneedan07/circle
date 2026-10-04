@@ -17,6 +17,11 @@
 #      Blueprints are not re-read on every push -- this step is the reason a
 #      site can keep serving the previous configuration after a commit.
 #
+# Check the Publish Path is `./site` after any change. Serving `frontend/dist`
+# instead deploys the application's own interface, which on a public host has
+# no backend behind it and can only render its "no Circle behind it" page --
+# that is a working site that explains nothing.
+#
 # The interface is not deployed here. The application serves its own UI from
 # the same local process that holds the archive; an off-machine copy of that UI
 # would have no backend behind it.
@@ -29,9 +34,12 @@ services:
     runtime: static
 
     # There is no package.json at the repo root and nothing to compile:
-    # site/ is committed HTML.
+    # site/ is committed HTML (index, how-it-works, faq, privacy, terms).
     buildCommand: ""
 
+    # The published address is https://circle-dh51.onrender.com -- keep
+    # frontend/src/version.ts in step with it, since the in-app consent screen
+    # links to the terms and privacy pages hosted here.
     staticPublishPath: ./site
 
     envVars:

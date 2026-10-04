@@ -3,205 +3,164 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Circle — a private record of your own life</title>
+    <title>Circle &mdash; a private record of the people you talk to</title>
     <meta
       name="description"
-      content="Circle reads the exports you already have — messages, email, calendar, voice — and answers questions about your relationships. It runs entirely on your own machine."
+      content="Circle is a free Windows desktop app that reads the message exports you already have, works out who the people in them are, and answers questions about your relationships. Everything runs on your own machine."
     />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-    <style>
-      :root {
-        --paper: #e9e3d6;
-        --ink: #1b1914;
-        --muted: #6b6558;
-        --line: #cdc4b0;
-        --accent: #4b5c3a;
-      }
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --paper: #171510;
-          --ink: #e9e3d6;
-          --muted: #a49c8a;
-          --line: #35312a;
-          --accent: #a3c08a;
-        }
-      }
-      * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        background: var(--paper);
-        color: var(--ink);
-        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-        line-height: 1.6;
-      }
-      a { color: inherit; }
-      .wrap { max-width: 46rem; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
-      header { border-bottom: 1px solid var(--line); padding-bottom: 1.5rem; }
-      .mark {
-        font-size: 1.1rem;
-        letter-spacing: 0.22em;
-        text-transform: uppercase;
-      }
-      .tagline { color: var(--muted); font-size: 0.85rem; margin-top: 0.4rem; }
-      h1 {
-        font-size: clamp(2rem, 6vw, 3rem);
-        line-height: 1.15;
-        margin: 3rem 0 1rem;
-        font-weight: 500;
-      }
-      .lede { font-size: 1.1rem; color: var(--muted); max-width: 38rem; }
-      h2 {
-        font-size: 0.8rem;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: var(--muted);
-        font-weight: 600;
-        margin: 3.5rem 0 1rem;
-      }
-      .downloads { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1.5rem 0 0; }
-      .btn {
-        display: inline-block;
-        border: 1px solid var(--ink);
-        padding: 0.75rem 1.25rem;
-        text-decoration: none;
-        font-size: 0.95rem;
-      }
-      .btn:hover, .btn:focus { background: var(--ink); color: var(--paper); }
-      .btn[aria-disabled="true"] {
-        border-color: var(--line);
-        color: var(--muted);
-        pointer-events: none;
-      }
-      .note { color: var(--muted); font-size: 0.85rem; margin-top: 0.9rem; }
-      ul { padding-left: 1.1rem; }
-      li { margin: 0.4rem 0; }
-      ol.steps { padding-left: 1.3rem; }
-      ol.steps li { margin: 0.8rem 0; }
-      code {
-        font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
-        font-size: 0.88em;
-        border: 1px solid var(--line);
-        padding: 0.1rem 0.35rem;
-      }
-      .privacy {
-        border: 1px solid var(--line);
-        padding: 1.25rem 1.5rem;
-        margin-top: 3.5rem;
-      }
-      .privacy h3 { margin: 0 0 0.5rem; font-size: 1rem; }
-      .privacy p { margin: 0; color: var(--muted); }
-      footer {
-        border-top: 1px solid var(--line);
-        margin-top: 4rem;
-        padding-top: 1.5rem;
-        color: var(--muted);
-        font-size: 0.85rem;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1rem;
-        justify-content: space-between;
-      }
-      .skip {
-        position: absolute;
-        left: -9999px;
-      }
-      .skip:focus {
-        left: 1rem;
-        top: 1rem;
-        position: fixed;
-        background: var(--paper);
-        padding: 0.5rem 0.75rem;
-        border: 1px solid var(--ink);
-      }
-    </style>
+    <link rel="stylesheet" href="style.css" />
   </head>
+
   <body>
-    <a class="skip" href="#main">Skip to content</a>
     <div class="wrap">
-      <header>
-        <div class="mark">Circle</div>
-        <div class="tagline">a private record</div>
+      <header class="site">
+        <div>
+          <div class="mark"><a href="index.html">Circle</a></div>
+          <div class="tagline">a private record</div>
+        </div>
+        <nav class="site">
+          <a href="index.html" aria-current="page">Home</a>
+          <a href="how-it-works.html">How it works</a>
+          <a href="faq.html">FAQ</a>
+          <a href="privacy.html">Privacy</a>
+          <a href="terms.html">Terms</a>
+        </nav>
       </header>
 
-      <main id="main">
+      <main>
         <h1>Your messages already know who matters. Circle helps you ask.</h1>
+
         <p class="lede">
-          Point Circle at the exports you already have — WhatsApp, Telegram,
-          Instagram, email, calendar, voice notes. It reads them, works out who
-          is who, and answers questions like
-          &ldquo;who do I talk to most&rdquo; or &ldquo;what did we promise about
-          the project&rdquo;. Everything runs on your own machine.
+          Circle is a small Windows application. It reads the message exports
+          you already have on disk, works out which messages belong to which
+          person, and then answers questions like &ldquo;who do I talk to
+          most&rdquo; or &ldquo;what did we promise about the project&rdquo;.
+          Nothing is uploaded, because there is nowhere for it to be uploaded
+          to.
         </p>
 
         <div class="downloads">
           <a class="btn" href="https://github.com/navaneedan07/circle/releases/download/v0.2.0/Circle-0.2.0-windows-x64.exe">
             Download for Windows
           </a>
-          <span class="btn" aria-disabled="true">macOS &mdash; soon</span>
-          <span class="btn" aria-disabled="true">Linux &mdash; soon</span>
+          <span class="btn secondary" aria-disabled="true">macOS &mdash; soon</span>
+          <span class="btn secondary" aria-disabled="true">Linux &mdash; soon</span>
         </div>
         <p class="note">
           One installer, one window. No account, no server, no browser needed.
+          The first public release is not published yet: the button above starts
+          working as soon as the binary is on the project's release page.
         </p>
+
+        <h2>What it actually does</h2>
+        <div class="grid">
+          <div class="card">
+            <h3>Reads files you already have</h3>
+            <p>
+              WhatsApp, Telegram, Instagram, X, email, calendar files and
+              documents. It reads them where they sit, and never modifies,
+              moves or deletes them.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Works out who is who</h3>
+            <p>
+              Numbers, handles and display names are matched across sources
+              into one person each. When it is unsure it asks, and it never
+              merges two people without you saying so.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Answers from your own machine</h3>
+            <p>
+              A local language model through Ollama reads your archive. No API
+              key, no account, no per-question fee, no internet needed once it
+              is set up.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Keeps one file</h3>
+            <p>
+              Everything it learns is a single SQLite database in your Documents
+              folder. Delete that folder and the archive is gone.
+            </p>
+          </div>
+        </div>
+
+        <h2>Questions it can answer</h2>
+        <ul>
+          <li>Who do I talk to most, and who have I stopped talking to?</li>
+          <li>What did we last discuss with this person?</li>
+          <li>What should I remember before meeting them?</li>
+          <li>What are my recurring topics this year?</li>
+          <li>How many messages did I send last week?</li>
+        </ul>
 
         <h2>Setting it up</h2>
         <ol class="steps">
           <li>Run the installer, then open Circle from the Start menu.</li>
           <li>
-            Circle checks for the local model first. If it is missing, one
-            click installs <a href="https://ollama.com/download">Ollama</a> and
-            pulls <code>gemma3:4b</code> and <code>nomic-embed-text</code>
-            for you. Models run on your own hardware.
+            Circle checks for a local model first. If one is missing, one click
+            installs <a href="https://ollama.com/download">Ollama</a> and
+            downloads <code>gemma3:4b</code> and
+            <code>nomic-embed-text</code> for you. You are asked before
+            anything is downloaded, and it all runs on your own hardware.
           </li>
           <li>
             Choose the one folder that holds your exports. Circle creates
-            nothing inside it and never moves or deletes your files.
+            nothing inside it.
           </li>
         </ol>
         <p class="note">
-          First run indexes everything and can take a few minutes. The model
-          download is several gigabytes and happens once.
+          First run indexes everything, which takes a few minutes on a large
+          archive. The model download is several gigabytes and happens once. You
+          can keep asking questions while it imports.
         </p>
-
-        <h2>What Circle reads</h2>
-        <ul>
-          <li>Chat exports: WhatsApp, Telegram, Instagram, X</li>
-          <li>Email (mbox and individual messages)</li>
-          <li>Calendar (ICS)</li>
-          <li>Voice notes and other attachments inside exports</li>
-          <li>Notes and documents you drop in</li>
-        </ul>
 
         <h2>What Circle does not do</h2>
         <ul>
           <li>It does not connect to any social account. It reads files.</li>
           <li>It never merges two people without asking you first.</li>
           <li>It does not send anything anywhere, because there is nowhere for it to send it.</li>
+          <li>It has no analytics, no telemetry and no crash reporting.</li>
         </ul>
 
-        <div class="privacy">
+        <div class="callout">
           <h3>Where your data lives</h3>
-          <p>
+          <p class="muted">
             In one SQLite file inside <code>Documents/Circle/circle.db</code>, on
-            this machine. Your exports stay where they are; Circle reads them in
-            place. Nothing is uploaded, synced or backed up anywhere you did not
-            ask for. Close Circle and it is gone; delete that folder and so is
-            everything in it.
-          </p>
-          <p style="margin-top: 0.75rem">
-            The full detail is in the
-            <a href="privacy.html">privacy notice</a>, and the rules for using
-            the software are in the <a href="terms.html">terms of use</a>.
+            this machine. Your exports stay exactly where they are. Nothing is
+            uploaded, synced or backed up anywhere you did not ask for.
+            <a href="privacy.html">The full detail is in the privacy notice.</a>
           </p>
         </div>
+
+        <h2>Honest limitations</h2>
+        <ul>
+          <li>
+            Answers come from a small model running on your own computer. It can
+            be wrong, and it can be confidently wrong. Treat an answer as a
+            starting point for your own judgement, not a verified account of
+            what someone said.
+          </li>
+          <li>
+            Counting questions are answered by counting your records rather than
+            by the model, precisely because a small model asked to count 100,000
+            messages invents a confident number.
+          </li>
+          <li>Windows only, for now.</li>
+        </ul>
       </main>
 
-      <footer>
+      <footer class="site">
         <span>Circle &mdash; local-first relationship intelligence</span>
         <span>
-          <a href="terms.html">Terms</a> &middot;
+          <a href="how-it-works.html">How it works</a> &middot;
+          <a href="faq.html">FAQ</a> &middot;
           <a href="privacy.html">Privacy</a> &middot;
-          <a href="https://github.com/navaneedan07/circle">Source on GitHub</a>
+          <a href="terms.html">Terms</a> &middot;
+          <a href="https://github.com/navaneedan07/circle">Source</a>
         </span>
       </footer>
     </div>
