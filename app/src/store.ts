@@ -260,6 +260,18 @@ function embeddingView(blob: unknown): Float32Array | null {
 
 type Row = Record<string, unknown>;
 
+/**
+ * How long a stale embedding index may keep being served after new memories
+ * arrive. Long enough that a queue of imports does not rebuild the matrix
+ * between every file, short enough that an idle app is accurate again.
+ */
+const REBUILD_INTERVAL_MS = 30_000;
+
+/** Rows read per page while building the index, between loop yields. */
+const INDEX_PAGE = 5_000;
+
+const yieldToLoop = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
+
 /** Flat matrix of every stored embedding: `vectors[i * dim .. i * dim + dim)`. */
 export interface EmbeddingIndex {
   ids: string[];
@@ -271,6 +283,11 @@ export class Store {
   readonly db: DatabaseSync;
   private embedIndex: EmbeddingIndex | null = null;
   private embedIndexBuilding = false;
+  private embedIndexStale = false;
+  /** >0 while an import is writing; suppresses expensive index rebuilds. */
+  private bulkWrites = 0;
+  private embedIndexBuiltAt = 0;
+  private embedIndexBuild: Promise<void> = Promise.resolve();
 
   constructor(dbPath: string) {
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
@@ -772,8 +789,27 @@ export class Store {
       this.run("INSERT INTO memories_fts(memory_id, text) VALUES(?, ?)", [mem.id, mem.text]);
       inserted++;
     }
-    if (inserted > 0) this.embedIndex = null;
+    if (inserted > 0) {
+      // Mark stale rather than discarding. The matrix is expensive to build
+      // and an import invalidates it after every single batch; throwing it
+      // away meant the next question paid a full rebuild.
+      this.embedIndexStale = true;
+    }
     return inserted;
+  }
+
+  /**
+   * Signal that a bulk write is in progress.
+   *
+   * While this is true the embedding index is never rebuilt: see
+   * `embeddingIndex` for why that matters at this size.
+   */
+  beginBulkWrite(): void {
+    this.bulkWrites += 1;
+  }
+
+  endBulkWrite(): void {
+    this.bulkWrites = Math.max(0, this.bulkWrites - 1);
   }
 
   getMemory(id: string): Memory | null {
@@ -806,40 +842,100 @@ export class Store {
   }
 
   /**
-   * Every stored embedding as one flat matrix, built once and cached until new
-   * memories arrive.
+   * The cached embedding matrix, or null when it is not ready.
    *
-   * Search used to rebuild this on every query, which meant decoding and
-   * allocating millions of boxed numbers per keystroke -- enough to stall the
-   * app on an archive the size of a real message history.
+   * This NEVER builds. Building reads every stored embedding and copies it into
+   * one contiguous buffer -- on a real archive roughly 100k rows of 768 floats,
+   * measured at tens of seconds. Doing that inline froze the window and the API
+   * for the duration, which is what made the app look broken. The build now
+   * happens in `warmEmbeddingIndex`, which yields between pages, and this
+   * accessor only hands out what is already in memory.
+   *
+   * Until the index is ready, retrieval falls back to keyword (FTS5) search:
+   * a worse answer, immediately, rather than a better one in a minute.
    */
   embeddingIndex(): EmbeddingIndex | null {
-    if (this.embedIndex) return this.embedIndex;
-    if (this.embedIndexBuilding) return null;
+    return this.embedIndex;
+  }
+
+  /**
+   * Build (or refresh) the embedding matrix in the background.
+   *
+   * Paged so the event loop is released regularly, and skipped while an import
+   * is running: the matrix would be stale the moment that finished. Safe to
+   * call often -- concurrent calls share the one in-flight build.
+   */
+  async warmEmbeddingIndex(): Promise<void> {
+    if (this.embedIndexBuilding) return this.embedIndexBuild;
+    if (this.embedIndex && !this.embedIndexStale) return;
+    if (this.bulkWrites > 0) return;
+    // Do not thrash: an import that just finished does not need the matrix
+    // rebuilt immediately, and rebuilding costs real time.
+    if (this.embedIndex && Date.now() - this.embedIndexBuiltAt < REBUILD_INTERVAL_MS) return;
+
+    this.embedIndexBuild = this.buildEmbeddingIndex();
+    return this.embedIndexBuild;
+  }
+
+  private async buildEmbeddingIndex(): Promise<void> {
     this.embedIndexBuilding = true;
     try {
-      const rows = this.all("SELECT id, embedding FROM memories WHERE embedding IS NOT NULL");
-      if (rows.length === 0) return null;
+      const total = Number(
+        (this.get("SELECT COUNT(*) AS c FROM memories WHERE embedding IS NOT NULL") as
+          | { c?: number }
+          | undefined)?.c ?? 0
+      );
+      if (total === 0) return;
 
-      const views: { id: string; vec: Float32Array }[] = [];
-      let dim = 0;
-      for (const r of rows) {
-        const vec = embeddingView(r.embedding);
-        if (!vec || vec.length === 0) continue;
-        if (dim === 0) dim = vec.length;
-        if (vec.length !== dim) continue;
-        views.push({ id: String(r.id), vec });
-      }
-      if (views.length === 0 || dim === 0) return null;
+      // Read the first page to learn the vector width, then fill one buffer
+      // directly. Collecting per-row copies first and concatenating afterwards
+      // briefly held the whole archive twice -- around 300 MB of extra
+      // allocations on a real archive, which was enough to kill the process
+      // outright rather than throw.
+      const first = this.all(
+        "SELECT id, embedding FROM memories WHERE embedding IS NOT NULL ORDER BY rowid LIMIT ?",
+        [INDEX_PAGE]
+      );
+      const probe = first.map((r) => embeddingView(r.embedding)).find((v) => v && v.length > 0);
+      const dim = probe?.length ?? 0;
+      if (dim === 0) return;
 
-      const vectors = new Float32Array(views.length * dim);
-      const ids: string[] = new Array(views.length);
-      for (let i = 0; i < views.length; i++) {
-        vectors.set(views[i]!.vec, i * dim);
-        ids[i] = views[i]!.id;
+      const capacity = Math.max(total, first.length);
+      const vectors = new Float32Array(capacity * dim);
+      const ids: string[] = new Array(capacity);
+      let written = 0;
+
+      const absorb = (rows: Row[]): void => {
+        for (const r of rows) {
+          if (written >= capacity) return;
+          const vec = embeddingView(r.embedding);
+          if (!vec || vec.length !== dim) continue;
+          vectors.set(vec, written * dim);
+          ids[written] = String(r.id);
+          written++;
+        }
+      };
+
+      absorb(first);
+      await yieldToLoop();
+
+      for (let offset = first.length; offset < total; offset += INDEX_PAGE) {
+        absorb(
+          this.all(
+            "SELECT id, embedding FROM memories WHERE embedding IS NOT NULL ORDER BY rowid LIMIT ? OFFSET ?",
+            [INDEX_PAGE, offset]
+          )
+        );
+        // Hand the event loop back between pages. Without this the window is
+        // unresponsive for the whole build, which is what this method exists
+        // to prevent.
+        await yieldToLoop();
       }
-      this.embedIndex = { ids, vectors, dim };
-      return this.embedIndex;
+
+      if (written === 0) return;
+      this.embedIndex = { ids: ids.slice(0, written), vectors: vectors.subarray(0, written * dim), dim };
+      this.embedIndexBuiltAt = Date.now();
+      this.embedIndexStale = false;
     } finally {
       this.embedIndexBuilding = false;
     }

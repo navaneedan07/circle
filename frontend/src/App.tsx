@@ -9,6 +9,7 @@ import FirstRun from "./pages/FirstRun";
 import ConnectPage from "./pages/ConnectPage";
 import HostedPage from "./pages/HostedPage";
 import SetupPage from "./pages/SetupPage";
+import ConsentPage from "./pages/ConsentPage";
 import { api, getConnection } from "./api";
 
 /**
@@ -65,18 +66,30 @@ function CircleApp() {
     : "";
 
   const [connected, setConnected] = useState<boolean | null>(null);
+  // Consent is checked before anything else: before the folder is chosen,
+  // before the model installer can run, before a single export is read.
+  const [termsAccepted, setTermsAccepted] = useState<boolean | null>(null);
   // The model gate is separate from the connection gate: the backend can be
   // reachable while Ollama is absent, and then the only honest screen is the
   // prerequisite installer.
   const [needsSetup, setNeedsSetup] = useState(false);
   const retry = useCallback(() => {
     setConnected(null);
+    setTermsAccepted(null);
     // /api/auth/status is public and reports both the access-key requirement
     // and whether the model is installed, so it is the right gate: calling
     // bootstrap first would 401 or time out before the user has seen why.
     api
-      .authStatus()
-      .then(async (s) => {
+      .terms()
+      .then(async (t) => {
+        if (!t.accepted) {
+          // Stop here. Everything after this point reads private data.
+          setTermsAccepted(false);
+          setConnected(true);
+          return;
+        }
+        setTermsAccepted(true);
+        const s = await api.authStatus();
         // authStatus is public, so a 200 does not mean the key was right.
         // key_accepted is what says whether real calls will succeed.
         if (!s.key_accepted) {
@@ -115,6 +128,10 @@ function CircleApp() {
 
   if (!connected) {
     return <ConnectPage onConnected={retry} />;
+  }
+
+  if (termsAccepted === false) {
+    return <ConsentPage onAccepted={retry} />;
   }
 
   if (needsSetup) {

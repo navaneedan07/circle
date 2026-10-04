@@ -20,3 +20,17 @@ export const APP_VERSION = "0.2.0";
  */
 export const DOWNLOAD_PATH =
   "https://github.com/navaneedan07/circle/releases/download/v0.2.0/Circle-0.2.0-windows-x64.exe";
+
+/**
+ * Base address of the published site, where the terms and privacy notice live.
+ *
+ * NOTE: this must match the address the Render static site actually serves.
+ * The blueprint in render.yaml names the service `circle`, but the final host
+ * name is only known once that service has been created and deployed -- so
+ * confirm it here before release. The consent screen links to these pages; a
+ * wrong host means the reader cannot read what they are agreeing to.
+ */
+export const SITE_URL = "https://circle.onrender.com";
+
+export const TERMS_URL = `${SITE_URL}/terms.html`;
+export const PRIVACY_URL = `${SITE_URL}/privacy.html`;

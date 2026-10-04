@@ -10,6 +10,7 @@
  * vectors, and the archive still works through keyword (FTS5) search.
  */
 import { execFileSync } from "node:child_process";
+import { withOllama } from "./gate.js";
 
 export interface EmbeddingStatus {
   available: boolean;
@@ -25,9 +26,16 @@ export class EmbeddingProvider {
     private readonly model: string
   ) {}
 
-  status(): EmbeddingStatus {
+  /**
+   * Probe the model list.
+   *
+   * Async on purpose: this feeds the health and setup screens, and a
+   * synchronous probe blocked the whole window for as long as an
+   * unresponsive Ollama took to answer (up to the timeout).
+   */
+  async statusAsync(): Promise<EmbeddingStatus> {
     try {
-      const names = this.listModels();
+      const names = await this.listModels();
       const available = names.some((n) => n === this.model || n.startsWith(`${this.model}:`));
       return {
         available,
@@ -43,11 +51,13 @@ export class EmbeddingProvider {
     }
   }
 
-  listModels(): string[] {
+  async listModels(): Promise<string[]> {
     // Short timeout: this feeds the health/setup screens and must never pin
-    // the main thread behind an unresponsive Ollama.
-    const out = curlJson(`${this.baseUrl}/api/tags`, "GET", undefined, 5);
-    const models = (out as { models?: { name?: string }[] })?.models ?? [];
+    // the request behind an unresponsive Ollama.
+    const out = (await fetchJson(`${this.baseUrl}/api/tags`, "GET", undefined, 5_000)) as {
+      models?: { name?: string }[];
+    };
+    const models = out?.models ?? [];
     return models.map((m) => m.name ?? "").filter(Boolean);
   }
 
@@ -58,8 +68,15 @@ export class EmbeddingProvider {
    * vectors, which is dramatically faster than one request per string: an
    * import of a few thousand messages is a few dozen calls instead of a few
    * thousand. Falls back to per-text `/api/embeddings` on older Ollama.
+   *
+   * The whole batch is taken as ONE background slot, so a question asked
+   * mid-import waits for at most a single batch instead of the whole run.
    */
   async embedBatch(texts: string[]): Promise<(number[] | null)[]> {
+    return withOllama("background", () => this.embedBatchUngated(texts));
+  }
+
+  private async embedBatchUngated(texts: string[]): Promise<(number[] | null)[]> {
     const started = Date.now();
     const nonEmpty = texts.map((t) => t.trim());
     let vectors: (number[] | null)[] = nonEmpty.map(() => null);
@@ -79,15 +96,26 @@ export class EmbeddingProvider {
     }
 
     for (let i = 0; i < nonEmpty.length; i++) {
-      // Sequential on purpose: Ollama serves one request at a time anyway, and
-      // this keeps peak memory flat on a large import.
-      vectors[i] = await this.embedOne(nonEmpty[i]!).catch(() => null);
+      // Each text takes its OWN background slot rather than holding the whole
+      // batch's worth of time in one go: a single long-held slot is
+      // indistinguishable, from the reader's side, from the app having hung.
+      vectors[i] = await withOllama("background", () =>
+        this.embedOneUngated(nonEmpty[i]!)
+      ).catch(() => null);
     }
     this.lastMetrics = { count: texts.length, ms: Date.now() - started, batched: false };
     return vectors;
   }
 
-  async embedOne(text: string): Promise<number[] | null> {
+  /**
+   * Embed one string. `priority` decides whether this is a reader waiting for
+   * an answer (interactive) or background indexing.
+   */
+  async embedOne(text: string, priority: "interactive" | "background" = "interactive"): Promise<number[] | null> {
+    return withOllama(priority, () => this.embedOneUngated(text));
+  }
+
+  private async embedOneUngated(text: string): Promise<number[] | null> {
     if (!text.trim()) return null;
     const body = JSON.stringify({ model: this.model, prompt: text });
     const out = await fetchJson(`${this.baseUrl}/api/embeddings`, "POST", body);

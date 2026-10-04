@@ -69,21 +69,24 @@ export class PrerequisiteInstaller extends EventEmitter {
     return "";
   }
 
-  private tags(): { running: boolean; models: string[] } {
+  private async tags(): Promise<{ running: boolean; models: string[] }> {
     try {
-      const out = execFileSync("curl", ["-s", "-S", "--max-time", "5", `${this.baseUrl}/api/tags`], {
-        encoding: "utf-8",
+      // Async: this runs on Electron's main process, so a blocking probe
+      // freezes the window every time the setup screen polls.
+      const res = await fetch(`${this.baseUrl}/api/tags`, {
+        signal: AbortSignal.timeout(5_000),
       });
-      const parsed = JSON.parse(out) as { models?: { name?: string }[] };
+      if (!res.ok) return { running: false, models: [] };
+      const parsed = (await res.json()) as { models?: { name?: string }[] };
       return { running: true, models: (parsed.models ?? []).map((m) => m.name ?? "").filter(Boolean) };
     } catch {
       return { running: false, models: [] };
     }
   }
 
-  status(): PrereqStatus {
+  async statusAsync(): Promise<PrereqStatus> {
     const ollamaPath = this.findOllama();
-    const { running, models } = this.tags();
+    const { running, models } = await this.tags();
     const required = [this.model, this.embeddingModel];
     const missing = required.filter(
       (req) => !models.some((m) => m === req || m.startsWith(`${req}:`))
@@ -120,21 +123,24 @@ export class PrerequisiteInstaller extends EventEmitter {
         ollamaExe = this.findOllama();
       }
 
-      if (!this.tags().running) {
+      if (!(await this.tags()).running) {
         this.progress("start", "Starting Ollama");
         this.startOllama(ollamaExe);
         await this.waitForRunning(60_000);
       }
 
+      // Only what is actually absent is pulled. Re-downloading a model the
+      // reader already has would cost gigabytes for nothing.
+      const present = (await this.tags()).models;
       for (const model of [this.model, this.embeddingModel]) {
-        const installed = this.tags().models.some((m) => m === model || m.startsWith(`${model}:`));
+        const installed = present.some((m) => m === model || m.startsWith(`${model}:`));
         if (installed) continue;
         this.progress("pull", `Downloading model ${model} (this can take a while)`);
         await this.pullModel(model);
       }
 
       this.progress("done", "Everything is ready");
-      return this.status();
+      return this.statusAsync();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       this.progress("error", message);
@@ -185,7 +191,7 @@ export class PrerequisiteInstaller extends EventEmitter {
   private async waitForRunning(timeoutMs: number): Promise<void> {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
-      if (this.tags().running) return;
+      if ((await this.tags()).running) return;
       await delay(1000);
     }
     throw new Error("Ollama did not start in time");

@@ -13,8 +13,10 @@ import { broker } from "./events.js";
 import type { AppContext } from "./context.js";
 import { PrerequisiteInstaller } from "./setup.js";
 import { ask, prepareBrief, hybridRetrieve, type AnswerSource } from "./ai/rag.js";
+import type { LlmStatus } from "./ai/llm.js";
 import { computeProfile, refreshProfile } from "./relationship.js";
 import { nowIso } from "./domain.js";
+import { hasAcceptedTerms, saveSettings, TERMS_VERSION } from "./config.js";
 import { sanitizeFilename } from "./security.js";
 import { mediaFilenameKey } from "./media.js";
 
@@ -36,8 +38,16 @@ export function createServer(options: ServerOptions): { app: express.Express; in
     res.json({ status: ctx.started ? "ok" : "starting", health: ctx.health, started: ctx.started, offline_ready: Boolean((ctx.health.llm as { available?: boolean })?.available) });
   });
 
-  app.get("/api/auth/status", (_req, res) => {
-    const llm = (ctx.health.llm ?? {}) as { available?: boolean; installed_models?: string[] };
+  app.get("/api/auth/status", async (_req, res) => {
+    // Probe LIVE, not from the health captured at startup. Ollama very often
+    // starts after Circle does (the reader launches it, or it comes up with
+    // Windows), and reading the cached snapshot is what made a perfectly good
+    // local model look like "not configured" and send the reader to the
+    // installer for no reason.
+    const llm = await ctx.llm.statusAsync().catch((): LlmStatus => ({ available: false, model: ctx.settings.ollamaModel, detail: "unreachable" }));
+    const embeddings = await ctx.embedder.statusAsync().catch(() => ({ available: false, model: ctx.settings.embeddingModel, detail: "unreachable" }));
+    ctx.health.llm = llm;
+    ctx.health.embeddings = embeddings;
     res.json({
       access_key_required: false,
       key_accepted: true,
@@ -47,19 +57,50 @@ export function createServer(options: ServerOptions): { app: express.Express; in
       model_installed: Boolean(llm.available),
       installed_models: llm.installed_models ?? [],
       embedding_model: ctx.settings.embeddingModel,
-      embedding_installed: Boolean((ctx.health.embeddings as { available?: boolean })?.available),
-      ollama_reachable: Boolean(llm.installed_models?.length) || Boolean(llm.available),
+      embedding_installed: Boolean(embeddings.available),
+      // True whenever Ollama answered at all, model present or not: that is
+      // the difference between "start it" and "download it".
+      ollama_reachable: (llm.installed_models?.length ?? 0) > 0 || llm.available,
+      detail: llm.detail,
     });
   });
 
+  // ---------------------------------- terms -----------------------------------
+  /**
+   * Consent state.
+   *
+   * Checked before anything is read. Circle's whole premise is that it will
+   * point a local model at someone's private messages, so the agreement has to
+   * come first -- not after the archive is already indexed and the only thing
+   * left to agree to is what already happened.
+   */
+  app.get("/api/terms", (_req, res) => {
+    res.json({
+      accepted: hasAcceptedTerms(ctx.settings),
+      version: TERMS_VERSION,
+      accepted_at: ctx.settings.termsAcceptedAt,
+    });
+  });
+
+  app.post("/api/terms/accept", (req, res) => {
+    if (req.body?.accepted !== true) {
+      res.status(400).json({ ok: false, error: "terms must be explicitly accepted" });
+      return;
+    }
+    ctx.settings.termsAcceptedAt = nowIso();
+    ctx.settings.termsVersion = TERMS_VERSION;
+    saveSettings(ctx.paths, ctx.settings);
+    res.json({ ok: true, version: TERMS_VERSION, accepted_at: ctx.settings.termsAcceptedAt });
+  });
+
   // ---------------------------------- setup -----------------------------------
-  app.get("/api/setup/status", (_req, res) => res.json(installer.status()));
+  app.get("/api/setup/status", async (_req, res) => res.json(await installer.statusAsync()));
 
   app.post("/api/setup/install", async (_req, res) => {
     try {
       const status = await installer.install();
-      ctx.health.llm = ctx.llm.status();
-      ctx.health.embeddings = ctx.embedder.status();
+      ctx.health.llm = await ctx.llm.statusAsync();
+      ctx.health.embeddings = await ctx.embedder.statusAsync();
       res.json({ ok: true, status });
     } catch (err) {
       res.status(500).json({ ok: false, error: err instanceof Error ? err.message : String(err) });
@@ -77,7 +118,7 @@ export function createServer(options: ServerOptions): { app: express.Express; in
   app.post("/api/setup/pull-model", async (_req, res) => {
     try {
       await installer.pullModel(ctx.settings.ollamaModel);
-      ctx.health.llm = ctx.llm.status();
+      ctx.health.llm = await ctx.llm.statusAsync();
       res.json({ ok: true, model: ctx.settings.ollamaModel });
     } catch (err) {
       res.status(500).json({ ok: false, error: err instanceof Error ? err.message : String(err) });
@@ -447,7 +488,7 @@ export function createServer(options: ServerOptions): { app: express.Express; in
 
   app.post("/api/ai/warmup", async (_req, res) => {
     const warm = await ctx.llm.warmup();
-    ctx.health.llm = ctx.llm.status();
+    ctx.health.llm = await ctx.llm.statusAsync();
     res.json(warm);
   });
 

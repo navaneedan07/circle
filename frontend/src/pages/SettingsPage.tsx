@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api, fmtDate, Health, IdentitySuggestion } from "../api";
+import { PRIVACY_URL, TERMS_URL } from "../version";
 import WatchFolders from "../components/WatchFolders";
 import { usePoll } from "../hooks";
 
@@ -480,6 +481,31 @@ export default function SettingsPage() {
             </li>
           </ul>
         </div>
+        <section className="border border-line bg-surface p-4 text-xs text-muted">
+          <h2 className="eyebrow mb-2">Terms &amp; privacy</h2>
+          <p className="leading-5">
+            Circle keeps everything on this machine: no account, no server, no
+            analytics. The full documents open in your browser.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-4">
+            <a
+              href={TERMS_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="text-ink underline underline-offset-2"
+            >
+              Terms of use
+            </a>
+            <a
+              href={PRIVACY_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="text-ink underline underline-offset-2"
+            >
+              Privacy notice
+            </a>
+          </div>
+        </section>
       </section>
     </div>
   );

@@ -377,6 +377,15 @@ export const api = {
       { method: "POST" }
     ),
   setupStatus: () => request<SetupStatus>("/api/setup/status"),
+  terms: () =>
+    request<{ accepted: boolean; version: string; accepted_at: string }>(
+      "/api/terms"
+    ),
+  acceptTerms: () =>
+    request<{ ok: boolean; version: string; accepted_at: string }>(
+      "/api/terms/accept",
+      { method: "POST", body: JSON.stringify({ accepted: true }) }
+    ),
   setupInstall: () =>
     request<{ ok: boolean; status?: SetupStatus; error?: string }>("/api/setup/install", {
       method: "POST",

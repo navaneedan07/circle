@@ -39,6 +39,16 @@ export interface CircleSettings {
   watchFolder: string;
   /** Whether first-run has been completed. */
   onboarded: boolean;
+  /**
+   * When the reader accepted the terms of use and privacy notice, and which
+   * version of them they accepted.
+   *
+   * Empty means they have not. The app refuses to index anything until this
+   * is set: accepting is a precondition for reading someone's messages, not
+   * a formality to wave through after the data is already on disk.
+   */
+  termsAcceptedAt: string;
+  termsVersion: string;
   ollamaUrl: string;
   ollamaModel: string;
   embeddingModel: string;
@@ -52,6 +62,8 @@ export interface CircleSettings {
 export const DEFAULT_SETTINGS: CircleSettings = {
   watchFolder: "",
   onboarded: false,
+  termsAcceptedAt: "",
+  termsVersion: "",
   ollamaUrl: "http://localhost:11434",
   ollamaModel: "gemma3:4b",
   embeddingModel: "nomic-embed-text",
@@ -110,8 +122,21 @@ export function loadSettings(paths: CirclePaths): CircleSettings {
   }
 }
 
-export function saveSettings(paths: CirclePaths, settings: CircleSettings): void {
-  fs.mkdirSync(path.dirname(paths.settingsFile), { recursive: true });
+/**
+ * The version of the terms the reader agreed to.
+ *
+ * Bumping this is what makes a materially changed document require a fresh
+ * agreement: an old acceptance stops counting, and the consent screen returns.
+ * Without it, agreeing once would silently cover every future revision.
+ */
+export const TERMS_VERSION = "2026-10-04";
+
+/** Whether these terms have been accepted for the CURRENT version. */
+export function hasAcceptedTerms(settings: CircleSettings): boolean {
+  return Boolean(settings.termsAcceptedAt) && settings.termsVersion === TERMS_VERSION;
+}
+
+export function saveSettings(paths: CirclePaths, settings: CircleSettings): void {  fs.mkdirSync(path.dirname(paths.settingsFile), { recursive: true });
   const tmp = `${paths.settingsFile}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(settings, null, 2), "utf-8");
   fs.renameSync(tmp, paths.settingsFile);

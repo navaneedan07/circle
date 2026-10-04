@@ -87,9 +87,9 @@ export class AppContext {
     health.database = { connected: this.store.ping(), engine: this.store.engineName() };
     this.store.resumeIncompleteJobs();
 
-    const llmStatus = this.llm.status();
+    const llmStatus = await this.llm.statusAsync();
     health.llm = llmStatus;
-    health.embeddings = this.embedder.status();
+    health.embeddings = await this.embedder.statusAsync();
     health.stt = { available: false, provider: "none", detail: "voice transcription is not enabled in this build" };
     health.tts = { enabled: false, detail: "disabled" };
 
@@ -110,6 +110,10 @@ export class AppContext {
     health.offline_ready = Boolean(llmStatus.available);
     this.health = health;
     this.started = true;
+    // Build the vector index in the background, after the window is up. It is
+    // not needed to answer the first question -- keyword search covers that --
+    // and building it inline is what used to freeze startup.
+    void this.store.warmEmbeddingIndex();
     return health;
   }
 

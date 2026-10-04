@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Terms — Circle</title>
+    <meta
+      name="description"
+      content="Terms of use for Circle, a local-first desktop application that reads your own message exports on your own machine."
+    />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <style>
+      :root {
+        --paper: #e9e3d6;
+        --ink: #1b1914;
+        --muted: #6b6558;
+        --line: #cdc4b0;
+        --accent: #4b5c3a;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --paper: #171510;
+          --ink: #e9e3d6;
+          --muted: #a49c8a;
+          --line: #35312a;
+          --accent: #a3c08a;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        line-height: 1.6;
+      }
+      a { color: inherit; }
+      .wrap { max-width: 46rem; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
+      header { border-bottom: 1px solid var(--line); padding-bottom: 1.5rem; }
+      .mark { font-size: 1.1rem; letter-spacing: 0.22em; text-transform: uppercase; }
+      .tagline { color: var(--muted); font-size: 0.85rem; margin-top: 0.4rem; }
+      h1 {
+        font-size: clamp(1.8rem, 5vw, 2.4rem);
+        line-height: 1.2;
+        margin: 3rem 0 0.5rem;
+        font-weight: 500;
+      }
+      .lede { color: var(--muted); font-size: 0.95rem; }
+      h2 {
+        font-size: 0.8rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 600;
+        margin: 2.75rem 0 0.75rem;
+      }
+      ul { padding-left: 1.1rem; }
+      li { margin: 0.4rem 0; }
+      code {
+        font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+        font-size: 0.88em;
+        border: 1px solid var(--line);
+        padding: 0.1rem 0.35rem;
+      }
+      .box {
+        border: 1px solid var(--line);
+        padding: 1.1rem 1.4rem;
+        margin: 1.5rem 0;
+      }
+      .box h3 { margin: 0 0 0.4rem; font-size: 1rem; }
+      .box p { margin: 0; color: var(--muted); }
+      .meta { color: var(--muted); font-size: 0.85rem; }
+      footer {
+        border-top: 1px solid var(--line);
+        margin-top: 4rem;
+        padding-top: 1.5rem;
+        color: var(--muted);
+        font-size: 0.85rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        justify-content: space-between;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="mark">Circle</div>
+        <div class="tagline">terms</div>
+      </header>
+
+      <main>
+        <h1>Terms of Use</h1>
+        <p class="lede">
+          Circle is free software that runs on your own computer. These terms
+          cover what you may do with it and what we can and cannot promise.
+        </p>
+
+        <h2>1. What Circle is</h2>
+        <p>
+          Circle is a desktop application that reads message exports, email,
+          calendar files and documents from a single folder you choose, builds a
+          searchable index of them on your own machine, and answers questions
+          about that index using a language model running locally via
+          <a href="https://ollama.com">Ollama</a>. It is open source; the source
+          is available on
+          <a href="https://github.com/navaneedan07/circle">GitHub</a>.
+        </p>
+
+        <h2>2. Licence</h2>
+        <p>
+          Circle is provided under the licence stated in its repository. You may
+          use, inspect and modify the source. The licence governs your rights to
+          the software itself; these terms govern your use of it.
+        </p>
+
+        <h2>3. Your responsibilities</h2>
+        <p>By using Circle you agree that:</p>
+        <ul>
+          <li>
+            You are responsible for having the right to access the files you
+            point Circle at. Those files are typically private
+            communications belonging to you and to other people.
+          </li>
+          <li>
+            You will not use Circle to surveil, stalk, harass or impersonate
+            anyone, and you will not process another person's data without their
+            knowledge and consent.
+          </li>
+          <li>
+            You will not use Circle to break the law, or in a way that infringes
+            the rights of others.
+          </li>
+          <li>
+            You are responsible for keeping your own machine and your own
+            backups safe. Circle keeps a local database; if the disk fails, the
+            index is gone.
+          </li>
+        </ul>
+
+        <h2>4. Privacy</h2>
+        <p>
+          Circle does not transmit your data. Our
+          <a href="privacy.html">privacy notice</a> describes exactly what stays
+          on your machine and what, if anything, is downloaded.
+        </p>
+
+        <h2>5. Third-party components</h2>
+        <p>
+          Circle incorporates third-party open-source software and downloads two
+          external dependencies on your instruction: the Ollama installer and
+          model weights from Ollama. Those components are licensed by their own
+          authors and are governed by their own terms, which we do not control.
+        </p>
+        <div class="box">
+          <h3>Model output is not always right</h3>
+          <p>
+            Circle answers using a small language model running on your own
+            hardware. It can be wrong, out of date, or confidently mistaken, and
+            it can miss context that a human reader would catch. Treat its
+            answers as a starting point for your own judgement, not as a
+            verified account of what someone said.
+          </p>
+        </div>
+
+        <h2>6. No warranty</h2>
+        <p>
+          Circle is provided &ldquo;as is&rdquo;, without warranty of any kind,
+          express or implied, including the warranties of merchantability,
+          fitness for a particular purpose and non-infringement. The software is
+          community project work in progress. We do not warrant that it will be
+          uninterrupted, error-free, or that it will read any particular export
+          format correctly.
+        </p>
+
+        <h2>7. Limitation of liability</h2>
+        <p>
+          To the fullest extent permitted by law, the authors and contributors
+          of Circle shall not be liable for any claim, damages, data loss, or
+          other liability arising from the software or its use, whether in an
+          action of contract, tort or otherwise. Where liability cannot be
+          excluded, it is limited to the greater of the amount you paid for the
+          software (which is nothing) or the minimum permitted by law.
+        </p>
+        <p>
+          Nothing in these terms limits liability that cannot lawfully be
+          limited, including liability for death or personal injury caused by
+          negligence, or for fraud.
+        </p>
+
+        <h2>8. No professional advice</h2>
+        <p>
+          Circle summarises your own records. It is not a lawyer, therapist,
+          advisor or accountant, and nothing it produces is professional advice.
+        </p>
+
+        <h2>9. Changes</h2>
+        <p>
+          These terms may be updated as the software changes. The updated version
+          will be published at this address with a revised date. Continuing to
+          use Circle after a change means you accept the updated terms.
+        </p>
+
+        <h2>10. Contact</h2>
+        <p>
+          Questions about these terms can be raised as an issue on the project's
+          <a href="https://github.com/navaneedan07/circle">GitHub repository</a>.
+        </p>
+
+        <p class="meta">Last updated: 4 October 2026</p>
+      </main>
+
+      <footer>
+        <span>Circle &mdash; local-first relationship intelligence</span>
+        <span><a href="index.html">Home</a> &middot; <a href="privacy.html">Privacy</a></span>
+      </footer>
+    </div>
+  </body>
+</html>

@@ -1,5 +1,6 @@
 /** Local Gemma via Ollama: status, warmup and asynchronous generation. */
-import { curlJson, fetchJson } from "./embeddings.js";
+import { fetchJson } from "./embeddings.js";
+import { withOllama } from "./gate.js";
 
 export interface LlmStatus {
   available: boolean;
@@ -19,17 +20,18 @@ export class LLMProvider {
     private readonly keepAlive = "30m"
   ) {}
 
-  private listModels(): string[] {
+  private async listModels(): Promise<string[]> {
     // Short timeout: this is a status probe, not a model call.
-    const out = curlJson(`${this.baseUrl}/api/tags`, "GET", undefined, 5) as {
+    const out = (await fetchJson(`${this.baseUrl}/api/tags`, "GET", undefined, 5_000)) as {
       models?: { name?: string }[];
     };
     return (out.models ?? []).map((m) => m.name ?? "").filter(Boolean);
   }
 
-  status(): LlmStatus {
+  /** Async probe: never block the main process behind an unresponsive Ollama. */
+  async statusAsync(): Promise<LlmStatus> {
     try {
-      const names = this.listModels();
+      const names = await this.listModels();
       const available = names.some((n) => n === this.model || n.startsWith(`${this.model}:`));
       return {
         available,
@@ -63,8 +65,15 @@ export class LLMProvider {
    * Async because this runs on Electron's main process: a synchronous call
    * would freeze the window for the entire generation, which on a 4B model is
    * tens of seconds.
+   *
+   * Taken as an INTERACTIVE slot: an import embedding in the background will
+   * pause between batches rather than making the reader wait for the import.
    */
   async generate(prompt: string, options: { maxTokens?: number; system?: string } = {}): Promise<string> {
+    return withOllama("interactive", () => this.generateUngated(prompt, options));
+  }
+
+  private async generateUngated(prompt: string, options: { maxTokens?: number; system?: string }): Promise<string> {
     const payload: Record<string, unknown> = {
       model: this.model,
       prompt,

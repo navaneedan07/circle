@@ -113,17 +113,45 @@ export async function hybridRetrieve(
     const index = deps.store.embeddingIndex();
     const queryVec = index ? await deps.embedder.embedOne(question).catch(() => null) : null;
     if (index && queryVec && queryVec.length === index.dim) {
-      // Score the flat matrix directly: no per-row decoding, no per-row objects.
-      const scored: { i: number; score: number }[] = new Array(index.ids.length);
+      // Score the flat matrix in a single pass, keeping only the best rows.
+      //
+      // The obvious version allocates one object per row and then sorts the
+      // lot. On a real archive that is ~110k short-lived objects plus a sort,
+      // every single question. Tracking the top rows in place avoids both,
+      // and only the winners are ever read back from the database.
+      const want = Math.min(k * 5, index.ids.length);
+      const bestIdx = new Int32Array(want);
+      const bestScore = new Float32Array(want);
+      bestIdx.fill(-1);
+      bestScore.fill(Number.NEGATIVE_INFINITY);
+      let filled = 0;
+
       for (let i = 0; i < index.ids.length; i++) {
-        scored[i] = { i, score: cosineRow(queryVec, index.vectors, i * index.dim, index.dim) };
+        const score = cosineRow(queryVec, index.vectors, i * index.dim, index.dim);
+        if (filled < want) {
+          bestIdx[filled] = i;
+          bestScore[filled] = score;
+          filled++;
+          if (filled === want) bestScore.sort(); // keep the cut-off ascending
+          continue;
+        }
+        if (score <= bestScore[0]!) continue;
+        // Replace the weakest and re-establish the cut-off.
+        let worst = 0;
+        for (let j = 1; j < want; j++) if (bestScore[j]! < bestScore[worst]!) worst = j;
+        bestIdx[worst] = i;
+        bestScore[worst] = score;
+        bestScore.sort();
       }
-      scored.sort((a, b) => b.score - a.score);
-      for (const { i } of scored.slice(0, k * 5)) {
-        const memory = deps.store.getMemory(index.ids[i]!);
+
+      const order = Array.from(bestIdx.slice(0, filled), (_, n) => n).sort(
+        (a, b) => bestScore[b]! - bestScore[a]!
+      );
+      for (const n of order) {
+        const memory = deps.store.getMemory(index.ids[bestIdx[n]!]!);
         if (!memory) continue;
         if (personId && memory.person_id !== personId) continue;
-        vector.push({ memory, score: scored[i]!.score });
+        vector.push({ memory, score: bestScore[n]! });
       }
     }
   } catch {

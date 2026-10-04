@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy — Circle</title>
+    <meta
+      name="description"
+      content="Circle is a local-first desktop application. Your messages, contacts and questions stay on your own machine. This is what that means in practice."
+    />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <style>
+      :root {
+        --paper: #e9e3d6;
+        --ink: #1b1914;
+        --muted: #6b6558;
+        --line: #cdc4b0;
+        --accent: #4b5c3a;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --paper: #171510;
+          --ink: #e9e3d6;
+          --muted: #a49c8a;
+          --line: #35312a;
+          --accent: #a3c08a;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        line-height: 1.6;
+      }
+      a { color: inherit; }
+      .wrap { max-width: 46rem; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
+      header { border-bottom: 1px solid var(--line); padding-bottom: 1.5rem; }
+      .mark { font-size: 1.1rem; letter-spacing: 0.22em; text-transform: uppercase; }
+      .tagline { color: var(--muted); font-size: 0.85rem; margin-top: 0.4rem; }
+      h1 {
+        font-size: clamp(1.8rem, 5vw, 2.4rem);
+        line-height: 1.2;
+        margin: 3rem 0 0.5rem;
+        font-weight: 500;
+      }
+      .lede { color: var(--muted); font-size: 0.95rem; }
+      h2 {
+        font-size: 0.8rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 600;
+        margin: 2.75rem 0 0.75rem;
+      }
+      ul { padding-left: 1.1rem; }
+      li { margin: 0.4rem 0; }
+      code {
+        font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+        font-size: 0.88em;
+        border: 1px solid var(--line);
+        padding: 0.1rem 0.35rem;
+      }
+      .box {
+        border: 1px solid var(--line);
+        padding: 1.1rem 1.4rem;
+        margin: 1.5rem 0;
+      }
+      .box h3 { margin: 0 0 0.4rem; font-size: 1rem; }
+      .box p { margin: 0; color: var(--muted); }
+      .meta { color: var(--muted); font-size: 0.85rem; }
+      table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+      th, td {
+        border: 1px solid var(--line);
+        padding: 0.5rem 0.7rem;
+        text-align: left;
+        vertical-align: top;
+        font-size: 0.9rem;
+      }
+      th { font-weight: 600; }
+      footer {
+        border-top: 1px solid var(--line);
+        margin-top: 4rem;
+        padding-top: 1.5rem;
+        color: var(--muted);
+        font-size: 0.85rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        justify-content: space-between;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="mark">Circle</div>
+        <div class="tagline">privacy</div>
+      </header>
+
+      <main>
+        <h1>Privacy</h1>
+        <p class="lede">
+          The short version: Circle has nowhere to send your data, because it
+          has no server. Everything below is what the software actually does,
+          not an aspiration.
+        </p>
+
+        <h2>What this application collects</h2>
+        <p>
+          Circle has no account system, no sign-in, and no analytics. It does
+          not collect telemetry, usage statistics, device identifiers, IP
+          addresses or crash reports. There is no mechanism in the application
+          for transmitting the contents of your archive to us, because the
+          project has no server-side component to receive it.
+        </p>
+        <p>
+          The website that hosts this page is ordinary static hosting. Like any
+          web server, the host may keep standard access logs (IP address, user
+          agent, requested URL). Those are the host's logs, not Circle's, and
+          they contain nothing about your archive.
+        </p>
+
+        <h2>What stays on your machine</h2>
+        <p>Circle stores everything it derives from your exports locally:</p>
+        <table>
+          <tr>
+            <th>What</th>
+            <th>Where it lives</th>
+          </tr>
+          <tr>
+            <td>Imported messages, contacts and derived relationships</td>
+            <td>A SQLite database, <code>Documents/Circle/circle.db</code></td>
+          </tr>
+          <tr>
+            <td>Copied media such as voice notes</td>
+            <td><code>Documents/Circle/media</code></td>
+          </tr>
+          <tr>
+            <td>Your folder choice and app settings</td>
+            <td><code>Documents/Circle/settings.json</code></td>
+          </tr>
+          <tr>
+            <td>Your original export files</td>
+            <td>
+              Exactly where you already keep them. Circle reads them in place
+              and never modifies, moves or deletes them.
+            </td>
+          </tr>
+        </table>
+
+        <h2>The model runs locally</h2>
+        <p>
+          Circle answers questions using <a href="https://ollama.com">Ollama</a>
+          running on your own computer. Your questions and the excerpts used to
+          answer them are sent to that local process over your own machine's
+          loopback interface. They are not sent to a remote service, and the
+          model provider does not receive them.
+        </p>
+        <div class="box">
+          <h3>The one thing that does leave your machine</h3>
+          <p>
+            Installing the prerequisites downloads software from the internet:
+            the Ollama installer from ollama.com, and model weights from the
+            Ollama library. Those downloads tell those servers your IP address,
+            as any download does. Nothing about your archive is included in
+            them &mdash; only the request for the software.
+          </p>
+        </div>
+
+        <h2>Deleting your data</h2>
+        <p>
+          Uninstalling Circle removes the application. To remove your data as
+          well, delete the <code>Documents/Circle</code> folder. Because nothing
+          was ever copied anywhere else, that is the whole deletion &mdash;
+          there is no remote copy, no backup, and no retention period to wait
+          out. Your original export files are untouched and remain wherever you
+          keep them.
+        </p>
+
+        <h2>Children</h2>
+        <p>
+          Circle is a general-purpose personal archive tool and is not directed
+          at children. It does not knowingly collect information from anyone,
+          because it does not collect information at all.
+        </p>
+
+        <h2>Changes to this policy</h2>
+        <p>
+          If this policy changes, the updated version will be published at this
+          address and the date below will change with it. Because the
+          application collects nothing, a change here cannot affect data already
+          on your machine.
+        </p>
+
+        <p class="meta">Last updated: 4 October 2026</p>
+      </main>
+
+      <footer>
+        <span>Circle &mdash; local-first relationship intelligence</span>
+        <span><a href="index.html">Home</a> &middot; <a href="terms.html">Terms</a></span>
+      </footer>
+    </div>
+  </body>
+</html>

@@ -470,6 +470,9 @@ export class IngestionPipeline {
       imported_at: nowIso(), record_count: imported,
     });
     this.deps.emit("sync", { filename: path.basename(filePath), imported, skipped, people_updated: affected.size });
+    // The archive grew, so the vector index is out of date. Refresh it in the
+    // background now that this file is done, unless more files are waiting.
+    void this.deps.store.warmEmbeddingIndex();
     return [imported, skipped];
   }
 
@@ -650,6 +653,17 @@ export class IngestionPipeline {
   }
 
   private async embedAndStore(memories: Memory[]): Promise<number> {
+    // Tell the store that a bulk write is under way so it leaves the embedding
+    // index alone until the import settles (see Store#embeddingIndex).
+    this.deps.store.beginBulkWrite();
+    try {
+      return await this.embedAndStoreUngated(memories);
+    } finally {
+      this.deps.store.endBulkWrite();
+    }
+  }
+
+  private async embedAndStoreUngated(memories: Memory[]): Promise<number> {
     if (memories.length === 0) return 0;
     // Larger batches keep the number of embedding requests down; the provider
     // sends each batch in a single call. `await` matters as much as batching:
