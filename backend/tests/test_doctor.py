@@ -61,12 +61,6 @@ class TestChecks:
         assert names == []
         assert "ollama.com/download" in c.fix
 
-    def test_unreachable_mongodb_gives_a_docker_command(self, doctor, monkeypatch):
-        monkeypatch.setenv("DATABASE_URL", "mongodb://127.0.0.1:1")
-        c = doctor.check_mongodb("mongodb://127.0.0.1:1")
-        assert c.status == doctor.FAIL
-        assert "docker run" in c.fix
-
     def test_missing_node_is_a_warning_not_a_failure(self, doctor, monkeypatch):
         """The UI can still be served from an existing dist, so this must not
         block startup."""
@@ -84,32 +78,32 @@ class TestChecks:
 class TestReport:
     def test_ok_when_only_warnings(self, doctor):
         report = doctor.Report(checks=[
-            doctor.Check("MongoDB", doctor.OK, "fine"),
+            doctor.Check("Archive (SQLite)", doctor.OK, "fine"),
             doctor.Check("Node", doctor.WARN, "no npm"),
         ])
         assert report.ok is True
 
     def test_not_ok_when_something_failed(self, doctor):
         report = doctor.Report(checks=[
-            doctor.Check("MongoDB", doctor.FAIL, "down"),
+            doctor.Check("Archive (SQLite)", doctor.FAIL, "down"),
             doctor.Check("Node", doctor.WARN, "no npm"),
         ])
         assert report.ok is False
-        assert [c.name for c in report.failures] == ["MongoDB"]
+        assert [c.name for c in report.failures] == ["Archive (SQLite)"]
 
     def test_render_lists_fixes_for_failures(self, doctor):
         report = doctor.Report(checks=[
-            doctor.Check("MongoDB", doctor.FAIL, "cannot reach it",
-                         "docker run -d -p 27017:27017 mongo:7"),
+            doctor.Check("Archive (SQLite)", doctor.FAIL, "cannot open it",
+                         "set SQLITE_FILE to a path you own"),
             doctor.Check("Ollama", doctor.OK, "reachable"),
         ])
         text = doctor.render(report)
         assert "[fail]" in text
-        assert "docker run" in text
+        assert "SQLITE_FILE" in text
         assert "Fix these" in text
 
     def test_render_says_ready_when_ok(self, doctor):
-        report = doctor.Report(checks=[doctor.Check("MongoDB", doctor.OK, "fine")])
+        report = doctor.Report(checks=[doctor.Check("Archive (SQLite)", doctor.OK, "fine")])
         text = doctor.render(report)
         assert "ready" in text.lower()
 
@@ -117,7 +111,7 @@ class TestReport:
         """Windows consoles raise UnicodeEncodeError on emoji; the report must
         stay plain ASCII."""
         report = doctor.Report(checks=[
-            doctor.Check("MongoDB", doctor.FAIL, "down", "start it"),
+            doctor.Check("Archive (SQLite)", doctor.FAIL, "down", "start it"),
             doctor.Check("Node", doctor.WARN, "no npm"),
         ])
         doctor.render(report).encode("ascii")  # raises if anything is not ASCII
@@ -125,17 +119,17 @@ class TestReport:
     def test_json_output_is_valid_and_machine_readable(self, doctor, monkeypatch,
                                                        capsys):
         monkeypatch.setattr(doctor, "run_checks", lambda: doctor.Report(
-            checks=[doctor.Check("MongoDB", doctor.FAIL, "down", "fix it")]))
+            checks=[doctor.Check("Archive (SQLite)", doctor.FAIL, "down", "fix it")]))
         rc = doctor.main(["doctor.py", "--json"])
         import json
         out = json.loads(capsys.readouterr().out)
         assert rc == 1
         assert out["ok"] is False
-        assert out["checks"][0]["name"] == "MongoDB"
+        assert out["checks"][0]["name"] == "Archive (SQLite)"
 
     def test_exit_code_is_zero_when_all_ok(self, doctor, monkeypatch):
         monkeypatch.setattr(doctor, "run_checks", lambda: doctor.Report(
-            checks=[doctor.Check("MongoDB", doctor.OK, "fine")]))
+            checks=[doctor.Check("Archive (SQLite)", doctor.OK, "fine")]))
         assert doctor.main(["doctor.py"]) == 0
 
 

@@ -9,7 +9,7 @@ This is deliberately short. The landing page is site/index.html, published as
 static HTML, and duplicating its copy here would give the project two
 descriptions of itself that drift apart.
 */
-import { APP_VERSION, DOWNLOAD_PATH, DOWNLOAD_SIZE_MB } from "../version";
+import { APP_VERSION, DOWNLOAD_PATH } from "../version";
 
 export default function HostedPage() {
   return (
@@ -29,18 +29,17 @@ export default function HostedPage() {
 
         <a
           href={DOWNLOAD_PATH}
-          download
           className="mt-8 inline-block bg-ink px-6 py-3 text-xs font-medium uppercase tracking-[0.16em] text-paper hover:bg-accent"
         >
-          Download Circle
+          Download Circle for Windows
         </a>
         <p className="mt-3 text-xs leading-5 text-muted">
-          Version {APP_VERSION}, about {DOWNLOAD_SIZE_MB} MB for Windows.
+          Version {APP_VERSION}. One installer, one window, no account.
         </p>
 
         <p className="mt-8 border-l-2 border-line-strong pl-3 text-sm leading-6 text-muted">
-          Already installed? Open the app itself and use the browser window it
-          opens for you.
+          Already installed? Open the Circle app itself &mdash; it has its own
+          window.
         </p>
       </div>
     </div>

@@ -143,6 +143,24 @@ export type WatchFolder = {
   watched: boolean;
 };
 
+export type SetupStatus = {
+  ollamaInstalled: boolean;
+  ollamaRunning: boolean;
+  ollamaPath: string;
+  models: string[];
+  requiredModels: string[];
+  missingModels: string[];
+  ready: boolean;
+  detail: string;
+  platform: string;
+};
+
+export type SetupProgress = {
+  stage: "check" | "download" | "install" | "pull" | "start" | "done" | "error";
+  message: string;
+  percent?: number;
+};
+
 export type CloudDriveInfo = {
   installed: boolean;
   platform: string;
@@ -358,6 +376,11 @@ export const api = {
       "/api/setup/pull-model",
       { method: "POST" }
     ),
+  setupStatus: () => request<SetupStatus>("/api/setup/status"),
+  setupInstall: () =>
+    request<{ ok: boolean; status?: SetupStatus; error?: string }>("/api/setup/install", {
+      method: "POST",
+    }),
   health: () => request<Health>("/api/health"),
   aiMetrics: () => request<Record<string, unknown>>("/api/ai/metrics"),
   warmup: () => request<Record<string, unknown>>("/api/ai/warmup", { method: "POST" }),

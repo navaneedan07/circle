@@ -16,7 +16,7 @@ from circle.ai.rag import (Evidence, RagPipeline, classify, hybrid_retrieve,
                            understand)
 from circle.domain.models import Memory, Person, SourceType
 from circle.relationship.metrics import _is_noise_topic, compute_profile
-from circle.repository.mongo import _content_terms
+from circle.repository.serde import content_terms as _content_terms
 
 
 def _mem(mid: str, text: str, person_id: str = "p1",

@@ -1,7 +1,6 @@
 """SQLite implementation of the repository layer.
 
-Same interface as MongoStore: the app cannot tell which engine it is talking
-to. Every method below is a thin translation of its Mongo counterpart, so a
+The only storage engine. Every method is a small, direct SQL operation, so the
 behaviour difference is a bug in one method, not in the whole app.
 """
 from __future__ import annotations

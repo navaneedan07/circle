@@ -10,6 +10,36 @@ expensive to rediscover.
 
 ---
 
+> ## ⚠️ Current state (read first)
+>
+> Circle has been **rewritten as an Electron desktop app** under `app/`:
+>
+> - **Electron + Node backend**, one window. The HTTP API runs in Electron's
+>   main process; there is no separate backend binary and no browser shell.
+> - **SQLite only.** MongoDB has been removed from the Python backend too
+>   (`mongo.py`, `pymongo`, the migration script and the parity tests are
+>   gone). There is no second engine and no query-translation layer in the new
+>   app.
+> - **One folder, chosen by the user.** Circle watches exactly one folder and
+>   creates nothing inside it. There are no default or idle folders.
+> - **`node:sqlite`** (built into Node 22.5+/Electron) with FTS5, so there is no
+>   native module to rebuild.
+> - **Distribution changed.** An Electron installer is over GitHub's 100 MB
+>   per-file limit, so it is hosted as a **GitHub Release asset**, not committed
+>   to the repo. The Render page only links to it.
+>
+> See `BUILDING.md` for how to build and ship it. Sections 1–13 below document
+> the **legacy Python backend** (`backend/`), which is retained for reference
+> and is not shipped. Section 4's "two engines" warning no longer applies.
+>
+> A real bug fixed in the rewrite: the old watcher's only guard against
+> re-ingesting Circle's own files was a `startsWith` prefix check, which let
+> the archive database be picked up and quarantined (`backend/quarantine/
+> circle.db` is the evidence). The new watcher excludes every path Circle owns
+> by resolved-path containment.
+
+---
+
 ## 1. What Circle is
 
 A **local-first relationship intelligence desktop app**. It reads the exports a

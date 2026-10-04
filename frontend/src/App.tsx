@@ -8,6 +8,7 @@ import SettingsPage from "./pages/SettingsPage";
 import FirstRun from "./pages/FirstRun";
 import ConnectPage from "./pages/ConnectPage";
 import HostedPage from "./pages/HostedPage";
+import SetupPage from "./pages/SetupPage";
 import { api, getConnection } from "./api";
 
 /**
@@ -64,6 +65,10 @@ function CircleApp() {
     : "";
 
   const [connected, setConnected] = useState<boolean | null>(null);
+  // The model gate is separate from the connection gate: the backend can be
+  // reachable while Ollama is absent, and then the only honest screen is the
+  // prerequisite installer.
+  const [needsSetup, setNeedsSetup] = useState(false);
   const retry = useCallback(() => {
     setConnected(null);
     // /api/auth/status is public and reports both the access-key requirement
@@ -81,9 +86,11 @@ function CircleApp() {
         }
         if (!s.model_installed) {
           setFirstRun(false);
-          setConnected(false);
+          setNeedsSetup(true);
+          setConnected(true);
           return;
         }
+        setNeedsSetup(false);
         const b = await api.bootstrap();
         setFirstRun(b.first_run);
         setConnected(true);
@@ -108,6 +115,10 @@ function CircleApp() {
 
   if (!connected) {
     return <ConnectPage onConnected={retry} />;
+  }
+
+  if (needsSetup) {
+    return <SetupPage onReady={retry} />;
   }
 
   if (firstRun) {

@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 # Isolate config BEFORE circle.config is imported anywhere
-os.environ.setdefault("DATABASE_URL", "mongodb://localhost:27017")
+
 os.environ.setdefault("DATABASE_NAME", "circle_test")
 os.environ.setdefault("WATCHER_ENABLED", "false")
 os.environ.setdefault("SENTRY_ENABLED", "false")
@@ -91,37 +91,26 @@ class FakeLLM:
 def store(tmp_path_factory):
     """The store under test, wiped before and after the session.
 
-    Both engines are supported so a storage bug cannot hide behind whichever
-    one happens to be installed: CIRCLE_TEST_BACKEND=mongo pytest.
+    SQLite is the only engine, so a storage bug cannot hide behind whichever
+    engine happens to be installed.
     """
     from circle.config import get_settings
     from circle.repository.factory import get_store
     s = get_settings()
-    if (s.storage_backend or "").lower().startswith("mongo"):
-        st = get_store(s)
-        st.client.drop_database(s.database_name)   # fresh test DB
-        yield st
-        st.client.drop_database(s.database_name)
-    else:
-        path = tmp_path_factory.mktemp("circle-store") / "circle-test.db"
-        st = get_store(s, sqlite_path=str(path))
-        yield st
-        st.close()
+    path = tmp_path_factory.mktemp("circle-store") / "circle-test.db"
+    st = get_store(s, sqlite_path=str(path))
+    yield st
+    st.close()
 
 
 @pytest.fixture()
 def clean_store(store):
-    if hasattr(store, "db"):        # Mongo
-        for name in store.db.list_collection_names():
-            store.db[name].delete_many({})
-        # keep indexes
-    else:                            # SQLite
-        for table in ("people", "conversations", "messages", "emails",
-                      "calendar_events", "notes", "voice_recordings",
-                      "media", "documents", "memories", "relationship_events",
-                      "sources", "import_jobs", "profiles", "processed_files",
-                      "identity_suggestions", "app_settings"):
-            store.engine.execute(f"DELETE FROM {table}")
+    for table in ("people", "conversations", "messages", "emails",
+                  "calendar_events", "notes", "voice_recordings",
+                  "media", "documents", "memories", "relationship_events",
+                  "sources", "import_jobs", "profiles", "processed_files",
+                  "identity_suggestions", "app_settings"):
+        store.engine.execute(f"DELETE FROM {table}")
         store.engine.execute("DELETE FROM memories_fts")
     yield store
 

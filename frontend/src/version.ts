@@ -9,9 +9,14 @@ site/index.html carries the same values as static HTML. If you bump this, bump
 it there too (grep for Circle-0.).
 */
 
-export const APP_VERSION = "0.1.0";
+export const APP_VERSION = "0.2.0";
 
-/** Where the built executable is published, relative to the site root. */
-export const DOWNLOAD_PATH = "downloads/Circle-0.1.0-windows-x64.exe";
-
-export const DOWNLOAD_SIZE_MB = 40;
+/**
+ * Where the built installer is published.
+ *
+ * The Electron installer is larger than a git host's 100 MB per-file limit, so
+ * it is hosted as a GitHub Release asset rather than committed to the repo. The
+ * Render page only links to it.
+ */
+export const DOWNLOAD_PATH =
+  "https://github.com/navaneedan07/circle/releases/download/v0.2.0/Circle-0.2.0-windows-x64.exe";

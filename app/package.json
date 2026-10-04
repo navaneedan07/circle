@@ -1,0 +1,83 @@
+{
+  "name": "circle-desktop",
+  "productName": "Circle",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Private, local-first relationship intelligence. One desktop app, one SQLite file, no cloud.",
+  "type": "module",
+  "main": "dist/electron/main.cjs",
+  "scripts": {
+    "dev": "npm run build:renderer && tsx watch src/server/dev.ts",
+    "build:renderer": "cd ../frontend && npm run build",
+    "typecheck": "tsc -b",
+    "build": "npm run typecheck && node scripts/build.mjs",
+    "start": "electron .",
+    "dist": "npm run build:renderer && npm run build && electron-builder"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "dependencies": {
+    "chokidar": "^4.0.3",
+    "express": "^4.21.2",
+    "fflate": "^0.8.3"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.0",
+    "electron": "^37.0.0",
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.24.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.0"
+  },
+  "build": {
+    "appId": "com.circle.desktop",
+    "productName": "Circle",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../frontend/dist",
+        "to": "frontend"
+      }
+    ],
+    "electronLanguages": [
+      "en-US"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Circle-${version}-windows-x64.${ext}",
+      "signtoolOptions": {
+        "certificateFile": "certs/circle-dev.pfx",
+        "signingHashAlgorithms": [
+          "sha256"
+        ]
+      }
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Circle"
+    }
+  }
+}

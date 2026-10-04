@@ -44,8 +44,18 @@ backend/.installed
 frontend/*.tmp.mjs
 frontend/*.tmp.png
 frontend/*.tsbuildinfo
+*.tsbuildinfo
 
-# --- packaged desktop build ---
+# --- packaged desktop build (legacy PyInstaller) ---
 backend/dist/
 backend/build/
 site/downloads/
+
+# --- packaged Electron build ---
+app/dist/
+app/release/
+
+# --- code signing keys: NEVER commit (README stays tracked) ---
+*.pfx
+*.p12
+!app/certs/README.md

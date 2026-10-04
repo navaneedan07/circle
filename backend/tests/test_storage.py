@@ -446,31 +446,3 @@ class TestFactory:
         s = Settings(work_root=str(tmp_path / "work"))
         assert s.root_dir() is None
         assert s.sqlite_path().is_absolute()
-
-
-@pytest.mark.skipif(not os.environ.get("MONGO_TESTS"),
-                    reason="set MONGO_TESTS=1 to compare against MongoDB")
-class TestEngineParity:
-    """Both engines must answer identically for the numbers Circle shows."""
-
-    def test_aggregates_match(self, tmp_path):
-        from circle.config import Settings
-        from circle.repository.factory import get_store
-        s = Settings(import_root=str(tmp_path / "i"))
-        try:
-            mongo = get_store(s)
-        except Exception as e:  # noqa: BLE001
-            pytest.skip(f"MongoDB unavailable: {e}")
-        lite = get_store(s, sqlite_path=str(tmp_path / "p.db"))
-        try:
-            for label, fn in [
-                ("topic_totals", lambda x: x.topic_totals(limit=10)),
-                ("activity", lambda x: x.activity_totals()),
-                ("distinct_people", lambda x: x.distinct_people()),
-                ("jobs", lambda x: x.count_jobs_by_status()),
-                ("counts", lambda x: (x.count_people(), x.count_messages(),
-                                      x.count_memories())),
-            ]:
-                assert fn(lite) == fn(mongo), label
-        finally:
-            lite.close()

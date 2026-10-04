@@ -3,128 +3,159 @@
 Two outputs come out of this repo: the desktop app and the download page.
 Neither needs a server.
 
+> **Note on history.** An earlier version of Circle was a Python/FastAPI app
+> packaged with PyInstaller into a ~40 MB one-file executable that opened in
+> a browser. It has been replaced by an **Electron desktop app** with a Node
+> backend and a single SQLite file. MongoDB has been removed entirely. The
+> Python tree under `backend/` is legacy and is not part of the shipped app.
+
 ## The desktop app
 
-One self-contained executable. No installer, no runtime to install, no
-database to provision.
+One Electron application. No installer wizard required, no separate backend
+process to run, no database to provision. The backend runs inside Electron's
+main process (which is Node), so there is no second binary to ship.
 
 ```bash
-# 1. Build the interface (the app bundles the compiled output)
-cd frontend && npm ci && npm run build && cd ..
+# 1. Install dependencies
+cd app && npm install
 
-# 2. Package everything into backend/dist/Circle.exe
-cd backend
-.venv/Scripts/python -m pip install -r requirements.txt pyinstaller
-.venv/Scripts/python -m PyInstaller circle.spec --noconfirm
+# 2. Build the interface (the app bundles the compiled output)
+npm run build:renderer
+
+# 3. Typecheck and bundle the main process
+npm run build
+
+# 4. Run it
+npm start
 ```
 
-The result is `backend/dist/Circle.exe` (about 105 MB; most of it is the
-Python runtime and the local-model libraries).
-
-To try it without packaging:
+To make the distributable:
 
 ```bash
-cd backend && .venv/Scripts/python desktop_entry.py
+cd app
+CSC_KEY_PASSWORD=<cert-password> npm run dist
+# -> app/release/Circle-<version>-windows-x64.exe   (signed NSIS installer)
+# -> app/release/Circle-<version>-windows-x64.zip   (portable)
 ```
+
+The `.exe` is the signed installer; the `.zip` is the same app as a portable
+folder (no install step). Both are large (~280 MB / ~360 MB) because they carry
+the Chromium runtime.
+
+## Code signing
+
+Signing is configured in `package.json` under `win.signtoolOptions`, using
+`certs/circle-dev.pfx`. `certs/` is **gitignored** — a signing key must never be
+committed. The password is read from `CSC_KEY_PASSWORD`, not stored in the repo.
+
+```bash
+CSC_KEY_PASSWORD=<password> npm run dist
+```
+
+### The certificate in this repo is self-signed
+
+`certs/circle-dev.pfx` was generated with `New-SelfSignedCertificate`. It
+produces a **valid signature** (verify with `Get-AuthenticodeSignature`; the
+signer and an RFC3161 timestamp are present) but the chain ends in an untrusted
+root, so Windows shows the publisher as unknown and SmartScreen still warns.
+To remove that warning you must replace it with a **commercial code-signing
+certificate** (OV/EV) — a credential only you can buy. See `certs/README.md`.
+
+### Windows symlink privilege (fresh machines)
+
+`electron-builder` fetches the `winCodeSign` package, which contains macOS
+dylib *symlinks*. Windows cannot create symlinks without **Settings → System →
+For developers → Developer Mode** (or an elevated shell), so a first build can
+fail with:
+
+```
+Cannot create symbolic link : A required privilege is not held by the client
+  ...\winCodeSign\...\darwin\10.12\lib\libcrypto.dylib
+```
+
+Fix it by enabling Developer Mode, then delete
+`%LOCALAPPDATA%\electron-builder\Cache\winCodeSign` so it re-extracts cleanly.
+The needed Windows tools (`rcedit`, `signtool`) can also be extracted manually
+with the `darwin` folder excluded if you would rather not enable Developer Mode.
 
 ### What the build needs
 
-- Python 3.11+ with a working `.venv` (see README §9)
-- Node 20+ for the frontend build
-- A built `frontend/dist` — the spec bundles it, and skips it silently if it
-  is missing, which produces an app that starts but serves no interface
+- Node 22.5+ (the app uses the built-in `node:sqlite`; no native module to
+  compile)
+- A built `frontend/dist` — step 2 produces it. Without it the app starts but
+  serves no interface. `npm run dist` runs `build:renderer` itself, so the
+  installer can never pick up a stale interface from an earlier build.
 
 ### Verifying a build
 
-A packaged build can fail in ways the source tree cannot: imports that only
-resolve from a real filesystem, and assets that unpack somewhere other than
-expected. So check the binary itself, not the source.
+A packaged build can fail in ways the source tree cannot, so check the binary
+itself, not the source.
 
 ```bash
-cd backend
-CIRCLE_NO_BROWSER=1 ./dist/Circle.exe
+cd app
+npm run build
+npm start
 ```
 
-Then, in another terminal:
+Then confirm the window opens, the prerequisite screen reports the local model
+as ready, and `Documents/Circle/circle.db` is created after choosing a folder.
 
-```bash
-curl -s http://127.0.0.1:8000/api/health     # {"status":"ok", ... "engine":"sqlite"}
-curl -sI http://127.0.0.1:8000/              # 200 text/html
-curl -sI http://127.0.0.1:8000/settings      # 200 text/html (SPA deep link)
-```
+## Distribution — read this before cutting a release
 
-Two failures worth knowing, both found this way:
+**Do not commit the installer to the repo.** Git hosts reject any single file
+over **100 MB**, and an Electron installer is comfortably past that (it carries
+the Chromium runtime). The old build fit because it was a 40 MB PyInstaller
+one-file executable; that is no longer true.
 
-- `Error loading ASGI app. Could not import module "circle.main"` — uvicorn was
-  given an import string, which a frozen build cannot resolve. `desktop.py`
-  imports the app object instead.
-- A 404 on `/` with a working API — the frontend unpacked somewhere else. A
-  one-file build extracts to `sys._MEIPASS`, not next to the `.exe`.
+The current flow:
 
-The console window is deliberate: it is where a startup failure is visible.
+1. Build the zip (`npm run dist`).
+2. Upload it as a **GitHub Release asset** — Releases allow large files and are
+   not subject to the 100 MB per-file git limit.
+3. Point `site/index.html` and `frontend/src/version.ts` at that Release URL.
+   The version in the filename and the URL must move together.
 
-## The download page
+`site/` is committed static HTML with no build step; Render publishes it
+directly (see `render.yaml`). The application is not deployed there — it serves
+its own interface from the local process. The page only hands over the file.
 
-`site/` is committed HTML with no build step. Render publishes it directly
-(see `render.yaml`). The application itself is not deployed there: it serves
-its own interface, and an off-machine copy of that interface would have no
-backend behind it.
-
-To publish a release, run the checker. It refuses to stage anything that would
-404, and it is the reason a broken release is caught before it is pushed
-rather than after:
-
-```bash
-python backend/scripts/publish_release.py --check   # verify only
-python backend/scripts/publish_release.py          # stage into site/downloads
-```
-
-It verifies that the build is under the host's 100 MB per-file limit, that the
-filename carries the version, that `site/index.html` and
-`frontend/src/version.ts` agree on version and size, and that the stated size
-matches the actual build. Then it prints the `git add -f` to run, because
-`site/downloads/` is gitignored.
-
-**The size limit is a wall, not a guideline.** Git hosts reject any single file
-over 100 MB outright, so an oversized build cannot be committed and the
-download link 404s with no error anywhere to explain why. This is why the
-packaged build excludes the speech-to-text libraries (see below): with them it
-was 104 MB, and zipping only reached 103 MB because it was already compressed.
-
-### Voice notes in the packaged app
-
-The packaged build deliberately leaves out `faster-whisper`, `ctranslate2`,
-`onnxruntime` and PyAV — about 61 MB that only exist to transcribe audio. This
-takes the download from 104 MB to 40 MB.
-
-Circle already handles their absence rather than failing: the health check
-reports `stt: available false` with the reason, and a voice recording is
-marked failed with a clear message instead of crashing the import. Everything
-else — messages, email, calendar, documents, and all questions — works exactly
-the same. To transcribe voice notes, run the app from source with
-`pip install -r requirements.txt`, which includes `faster-whisper`.
-
-**A commit alone does not change the deployed site.** Render blueprints are
-not re-read on every push, so after changing `render.yaml` (or switching what
-is published) you must open the service in the dashboard and reapply the
-blueprint. Until you do, the site keeps serving the configuration it was last
-given — which is the usual reason a change appears not to have worked.
+**A commit alone does not change the deployed site.** Render blueprints are not
+re-read on every push, so after changing `render.yaml` you must open the service
+in the dashboard and reapply the blueprint.
 
 ## The archive
 
-SQLite, by default: one file at `<data folder>/circle.db`. Copying that file is
-a backup; deleting it forgets everything. The data folder is
-`Documents/Circle` for a packaged build, or `backend/circle-archive` when
-running from source.
+SQLite, and only SQLite: one file at `<data folder>/circle.db`. On Windows the
+data folder is `Documents\Circle`. Copying that file is a backup; deleting it
+forgets everything.
 
-Set `STORAGE_BACKEND=mongo` to use MongoDB instead — still supported, and the
-migration script moves an existing archive across:
+Circle's own files (the archive, `media/`, `processed/`, `failed/`, `tmp/`) live
+in that one folder. **The folder you ask Circle to read is separate and belongs
+to you**: Circle reads it in place and creates nothing inside it. One install
+lives in one folder, so backing up or deleting Circle stays a single operation.
+
+## Local model
+
+Answering needs a local model. On first run the app checks for Ollama and the
+two models (`gemma3:4b`, `nomic-embed-text`) and offers one-click setup: it
+downloads Ollama, runs its installer, starts it, and pulls both models. It only
+fetches public installer and model artifacts — no user data is sent anywhere.
+
+To install by hand instead:
+
+```bash
+ollama pull gemma3:4b
+ollama pull nomic-embed-text
+```
+
+## Legacy: the Python backend
+
+`backend/` still contains the original Python/FastAPI implementation and its
+test suite (549 tests, SQLite-only). It is retained for reference and is not
+shipped. If you work in it:
 
 ```bash
 cd backend
-.venv/Scripts/python scripts/migrate_to_sqlite.py --dry-run
-.venv/Scripts/python scripts/migrate_to_sqlite.py
+.venv/Scripts/python -m pytest -q
+.venv/Scripts/python scripts/doctor.py
 ```
-
-The migration is idempotent (documents are written by id), so an interrupted
-run picks up where it stopped rather than starting over.

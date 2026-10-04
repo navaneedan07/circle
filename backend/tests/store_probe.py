@@ -1,8 +1,8 @@
-"""Engine-agnostic read helpers for tests.
+"""Test read helpers.
 
-Assertions about raw collections (counts, embeddings present, a specific row)
-are worth making directly, but going through ``store.db`` ties every test to
-one engine. These helpers read through whichever store is configured.
+Assertions about raw rows (counts, embeddings present, a specific record) are
+worth making directly, but going through the store's internals in every test is
+fragile. These helpers read through the SQLite store's own accessors.
 """
 from __future__ import annotations
 
@@ -10,16 +10,11 @@ from typing import Any, Optional
 
 
 def _docs(store, coll: str) -> Any:
-    """All documents in a collection, as plain dicts."""
-    if hasattr(store, "db"):                       # Mongo
-        return list(store.db[coll].find({}))
+    """All rows in a collection, as plain dicts."""
     return store.engine.find(coll)
 
 
 def find(store, coll: str, query: dict, limit: Optional[int] = None) -> list[dict]:
-    if hasattr(store, "db"):                       # Mongo
-        cur = store.db[coll].find(query)
-        return list(cur.limit(limit)) if limit else list(cur)
     return store.engine.find(coll, query, limit=limit)
 
 
@@ -29,29 +24,17 @@ def find_one(store, coll: str, query: dict) -> Optional[dict]:
 
 
 def count(store, coll: str, query: Optional[dict] = None) -> int:
-    query = query or {}
-    if hasattr(store, "db"):                       # Mongo
-        return store.db[coll].count_documents(query)
-    return store.engine.count(coll, query)
+    return store.engine.count(coll, query or {})
 
 
 def drop(store, coll: str, query: Optional[dict] = None) -> int:
     """Delete matching rows and return how many went."""
-    if hasattr(store, "db"):                       # Mongo
-        return store.db[coll].delete_many(query or {}).deleted_count
     if query:
         return store.engine.delete_many(coll, query)
     return store.engine.execute(f"DELETE FROM {coll}").rowcount
 
 
 def has_embedding(store, memory_id: str) -> bool:
-    """True when a memory carries a non-empty embedding.
-
-    Mongo reads it from the document; SQLite keeps it in a BLOB column, so the
-    check goes through the store's own accessor.
-    """
-    if hasattr(store, "db"):                       # Mongo
-        doc = store.db.memories.find_one({"_id": memory_id}, {"embedding": 1})
-        return bool(doc and doc.get("embedding"))
-    return bool(store.get_memory(memory_id)
-                and store.get_memory(memory_id).embedding)
+    """True when a memory carries a non-empty embedding."""
+    memory = store.get_memory(memory_id)
+    return bool(memory and memory.embedding)

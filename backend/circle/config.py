@@ -14,16 +14,11 @@ class Settings(BaseSettings):
     )
 
     # Database
-    # Circle ships as one local application, so the default is a single
-    # SQLite file: no server to install, no service to keep running, and the
-    # whole archive is one thing to back up or delete. STORAGE_BACKEND=mongo
-    # remains available for the large existing archive.
+    # Circle ships as one local application, so the store is a single SQLite
+    # file: no server to install, no service to keep running, and the whole
+    # archive is one thing to back up or delete. SQLite is the only engine.
     storage_backend: str = "sqlite"
     sqlite_file: str = "circle.db"
-    database_url: str = "mongodb://localhost:27017"
-    database_name: str = "circle"
-    mongo_atlas: bool = False
-    atlas_vector_index: str = "circle_vector_index"
 
     # Local AI
     ollama_url: str = "http://localhost:11434"
@@ -229,7 +224,9 @@ class Settings(BaseSettings):
                 out.append(origin)
         return out
 
-    # Known import subfolders (source detection by location + filename)
+    # Known import subfolders (source detection by location + filename).
+    # These are only ever *recognised* inside the folder the user chose; Circle
+    # never creates them.
     SOURCE_SUBFOLDERS: ClassVar[tuple[str, ...]] = (
         "whatsapp", "telegram", "instagram", "x", "twitter",
         "chats", "voice", "email", "calendar", "contacts", "documents", "notes",

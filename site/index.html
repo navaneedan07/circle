@@ -134,40 +134,33 @@
         </p>
 
         <div class="downloads">
-          <a class="btn" href="downloads/Circle-0.1.0-windows-x64.exe" download>
+          <a class="btn" href="https://github.com/navaneedan07/circle/releases/download/v0.2.0/Circle-0.2.0-windows-x64.exe">
             Download for Windows
           </a>
           <span class="btn" aria-disabled="true">macOS &mdash; soon</span>
           <span class="btn" aria-disabled="true">Linux &mdash; soon</span>
         </div>
         <p class="note">
-          One file, about 40&nbsp;MB. Nothing to install, no account, no server.
+          One installer, one window. No account, no server, no browser needed.
         </p>
 
         <h2>Setting it up</h2>
         <ol class="steps">
+          <li>Run the installer, then open Circle from the Start menu.</li>
           <li>
-            Install <a href="https://ollama.com/download">Ollama</a> and leave it
-            running. It is the only other thing Circle needs, and it is what
-            lets answers be generated on your own hardware.
+            Circle checks for the local model first. If it is missing, one
+            click installs <a href="https://ollama.com/download">Ollama</a> and
+            pulls <code>gemma3:4b</code> and <code>nomic-embed-text</code>
+            for you. Models run on your own hardware.
           </li>
           <li>
-            Pull the model, in a terminal:
-            <div><code>ollama pull gemma3:4b</code></div>
-            <div><code>ollama pull nomic-embed-text</code></div>
-          </li>
-          <li>
-            Unzip Circle and double-click <code>Circle.exe</code>. Your browser
-            opens automatically.
-          </li>
-          <li>
-            Drop your exports into the folder Circle watches. It picks them up
-            on its own.
+            Choose the one folder that holds your exports. Circle creates
+            nothing inside it and never moves or deletes your files.
           </li>
         </ol>
         <p class="note">
-          First run indexes everything and can take a few minutes. The Settings
-          screen shows progress and tells you if a model is missing.
+          First run indexes everything and can take a few minutes. The model
+          download is several gigabytes and happens once.
         </p>
 
         <h2>What Circle reads</h2>
@@ -189,10 +182,11 @@
         <div class="privacy">
           <h3>Where your data lives</h3>
           <p>
-            In one archive file inside <code>Documents\Circle\circle.db</code>, on
-            this machine. Nothing is uploaded, synced or backed up anywhere you
-            did not ask for. Close Circle and it is gone; delete that folder and
-            so is everything in it.
+            In one SQLite file inside <code>Documents/Circle/circle.db</code>, on
+            this machine. Your exports stay where they are; Circle reads them in
+            place. Nothing is uploaded, synced or backed up anywhere you did not
+            ask for. Close Circle and it is gone; delete that folder and so is
+            everything in it.
           </p>
         </div>
       </main>

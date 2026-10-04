@@ -1,13 +1,11 @@
 """Repository interfaces.
 
 The per-entity ABCs below describe the shape of each area. They are
-documentation rather than enforcement: the concrete stores historically used
-flat method names (``list_people``, not ``PersonRepo.list``), so both
-``MongoStore`` and ``SQLiteStore`` implement the flat surface directly and
-type-hint against ``Store``.
+documentation rather than enforcement: ``SQLiteStore`` uses flat method names
+(``list_people``, not ``PersonRepo.list``) and type-hints against ``Store``.
 
-``Store`` is what callers actually depend on, which is what makes the storage
-engine swappable without touching parsers, RAG, or the API.
+``Store`` is what callers depend on, so parsers, RAG and the API never touch
+SQL directly.
 """
 from __future__ import annotations
 

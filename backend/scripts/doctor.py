@@ -100,9 +100,6 @@ def check_archive(settings) -> Check:
     or written rather than a service that is not running. Checked by opening
     the real database, because that is the only honest test.
     """
-    backend = (getattr(settings, "storage_backend", "sqlite") or "sqlite").lower()
-    if backend.startswith("mongo"):
-        return check_mongodb(settings.database_url)
     path = settings.sqlite_path()
     try:
         import sqlite3
@@ -123,26 +120,6 @@ def check_archive(settings) -> Check:
             "it, or set SQLITE_FILE to a path you own.")
     exists = " (existing archive)" if path.exists() else ""
     return Check("Archive (SQLite)", OK, f"{path}{exists}")
-
-
-def check_mongodb(database_url: str) -> Check:
-    try:
-        import pymongo
-    except Exception as exc:  # noqa: BLE001
-        return Check(
-            "MongoDB", FAIL, f"pymongo is not installed ({exc})",
-            "Install dependencies: .venv/Scripts/python -m pip install -r requirements.txt")
-    try:
-        client = pymongo.MongoClient(database_url, serverSelectionTimeoutMS=2500)
-        client.admin.command("ping")
-        client.close()
-        return Check("MongoDB", OK, f"reachable at {database_url}")
-    except Exception as exc:  # noqa: BLE001
-        return Check(
-            "MongoDB", FAIL,
-            f"cannot reach {database_url} ({_short(exc)})",
-            "Start MongoDB, or run one with Docker:\n"
-            "docker run -d -p 27017:27017 --name circle-mongo mongo:7")
 
 
 def _ollama_tags(base: str) -> tuple[list[str], str]:
