@@ -16,7 +16,7 @@ import { ask, prepareBrief, hybridRetrieve, type AnswerSource } from "./ai/rag.j
 import type { LlmStatus } from "./ai/llm.js";
 import { computeProfile, refreshProfile } from "./relationship.js";
 import { nowIso } from "./domain.js";
-import { hasAcceptedTerms, saveSettings, TERMS_VERSION } from "./config.js";
+import { hasAcceptedTerms, isInside, saveSettings, TERMS_VERSION } from "./config.js";
 import { sanitizeFilename } from "./security.js";
 import { mediaFilenameKey } from "./media.js";
 
@@ -151,8 +151,12 @@ export function createServer(options: ServerOptions): { app: express.Express; in
     const offset = Number(req.query.offset ?? 0);
     const q = String(req.query.q ?? "").trim().toLowerCase();
     const sort = String(req.query.sort ?? "recent");
+    // Profiles are fetched once for the whole page rather than one query per
+    // person. Doing it per row meant N+1 queries and a JSON parse each, on a
+    // screen that is polled continuously.
+    const profiles = new Map(ctx.store.listProfiles().map((p) => [p.person_id, p]));
     let people = ctx.store.listPeople(100000, 0).map((p) => {
-      const profile = ctx.store.getProfile(p.id);
+      const profile = profiles.get(p.id);
       return {
         id: p.id,
         display_name: p.display_name,
@@ -333,10 +337,12 @@ export function createServer(options: ServerOptions): { app: express.Express; in
     const media = ctx.store.getMedia(req.params.id);
     if (!media) return res.status(404).json({ detail: "media not found" });
     // The path is resolved from the store and checked to stay inside it, so a
-    // request can never read an arbitrary file.
+    // request can never read an arbitrary file. `isInside` compares path
+    // segments; a plain prefix test would also accept a sibling directory
+    // called `media-backup`, which is the mistake this file documents
+    // elsewhere.
     const resolved = path.resolve(media.stored_path);
-    const root = path.resolve(ctx.paths.mediaDir);
-    if (!resolved.startsWith(root) || !fs.existsSync(resolved)) {
+    if (!isInside(resolved, ctx.paths.mediaDir) || !fs.existsSync(resolved)) {
       return res.status(404).json({ detail: "media file missing" });
     }
     res.sendFile(resolved);

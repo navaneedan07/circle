@@ -62,11 +62,6 @@ async function pump(): Promise<void> {
   }
 }
 
-/** Release everything held in the queue. Used only when shutting down. */
-export function resetGate(): void {
-  queue.length = 0;
-}
-
 /**
  * Run `fn` with exclusive access to Ollama, ahead of any queued background
  * work when `priority` is "interactive".

@@ -106,19 +106,6 @@ export function readHead(filePath: string, bytes = 4000): string {
   }
 }
 
-/** True when the path is a cloud placeholder that must be materialized first. */
-export function isCloudPlaceholder(filePath: string): boolean {
-  if (process.platform !== "win32") return false;
-  try {
-    const stat = fs.statSync(filePath);
-    // FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS (0x400000) / RECALL_ON_OPEN (0x40000)
-    const attrs = (stat as unknown as { attributes?: number }).attributes ?? 0;
-    return (attrs & 0x400000) !== 0 || (attrs & 0x40000) !== 0;
-  } catch {
-    return false;
-  }
-}
-
 /**
  * Extract a zip with zip-slip protection.
  *

@@ -83,9 +83,17 @@ export interface PipelineResult {
 export interface PipelineDeps {
   store: Store;
   resolver: IdentityResolver;
-  embedder: EmbeddingProvider;
+  /**
+   * Live accessors, not captured values.
+   *
+   * Settings can change while the app runs (a different model, a different
+   * folder), and `updateSettings` swaps the settings object rather than
+   * mutating it -- so anything holding the old object keeps using the old
+   * values indefinitely.
+   */
+  embedder: () => EmbeddingProvider;
+  settings: () => CircleSettings;
   paths: CirclePaths;
-  settings: CircleSettings;
   emit: (type: string, payload: Record<string, unknown>) => void;
 }
 
@@ -93,7 +101,7 @@ export class IngestionPipeline {
   constructor(private deps: PipelineDeps) {}
 
   private get watchRoot(): string {
-    return this.deps.settings.watchFolder;
+    return this.deps.settings().watchFolder;
   }
 
   async processPath(filePath: string): Promise<PipelineResult> {
@@ -146,7 +154,7 @@ export class IngestionPipeline {
       });
       this.deps.emit("job", { id: job.id, status: "PROCESSING", filename: job.filename });
 
-      const media = new MediaIngest(this.deps.store, this.deps.paths, this.deps.settings);
+      const media = new MediaIngest(this.deps.store, this.deps.paths, this.deps.settings());
       let imported = 0;
       let skipped = 0;
       if (ext === ".zip") {
@@ -172,7 +180,7 @@ export class IngestionPipeline {
   }
 
   private archive(filePath: string): void {
-    if (!shouldArchive(filePath, this.deps.paths, this.deps.settings)) return;
+    if (!shouldArchive(filePath, this.deps.paths, this.deps.settings())) return;
     try {
       moveFile(filePath, this.deps.paths.processedDir);
     } catch {
@@ -189,7 +197,7 @@ export class IngestionPipeline {
       this.deps.store.updateJob(job);
     }
     try {
-      if (fs.existsSync(filePath) && shouldArchive(filePath, this.deps.paths, this.deps.settings)) {
+      if (fs.existsSync(filePath) && shouldArchive(filePath, this.deps.paths, this.deps.settings())) {
         moveFile(filePath, quarantine ? this.deps.paths.quarantineDir : this.deps.paths.failedDir);
       }
     } catch {
@@ -675,7 +683,7 @@ export class IngestionPipeline {
       const batch = memories.slice(i, i + batchSize);
       let vectors: (number[] | null)[] = batch.map(() => null);
       try {
-        vectors = await this.deps.embedder.embedBatch(batch.map((m) => m.text));
+        vectors = await this.deps.embedder().embedBatch(batch.map((m) => m.text));
       } catch {
         /* store without vectors; keyword search still works */
       }

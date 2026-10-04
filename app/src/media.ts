@@ -5,14 +5,14 @@
  * (`media/<aa>/<bb>/<hash>-<name>`), so identical files are stored once and
  * nothing ever leaves the machine. Only metadata is written to the database.
  */
-import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { CirclePaths, CircleSettings } from "./config.js";
+import { isInside } from "./config.js";
 import type { MediaAttachment, MediaKind, SourceType } from "./domain.js";
 import { nowIso } from "./domain.js";
 import type { Store } from "./store.js";
-import { AUDIO_EXTENSIONS, MEDIA_EXTENSIONS, sanitizeFilename } from "./security.js";
+import { AUDIO_EXTENSIONS, MEDIA_EXTENSIONS, sanitizeFilename, sha256File } from "./security.js";
 
 const MIME: Record<string, string> = {
   ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".gif": "image/gif",
@@ -106,23 +106,9 @@ export class MediaIngest {
     const media = this.store.getMedia(mediaId);
     if (!media) return null;
     const resolved = path.resolve(media.stored_path);
-    const root = path.resolve(this.paths.mediaDir);
-    if (!resolved.startsWith(root)) return null;
+    // Segment-aware containment: a prefix test would also accept a sibling
+    // directory whose name merely starts with the media root.
+    if (!isInside(resolved, this.paths.mediaDir)) return null;
     return fs.existsSync(resolved) ? resolved : null;
   }
-}
-
-export function sha256File(filePath: string): string {
-  const hash = crypto.createHash("sha256");
-  const fd = fs.openSync(filePath, "r");
-  try {
-    const buf = Buffer.allocUnsafe(1 << 20);
-    let bytes = 0;
-    while ((bytes = fs.readSync(fd, buf, 0, buf.length, null)) > 0) {
-      hash.update(buf.subarray(0, bytes));
-    }
-  } finally {
-    fs.closeSync(fd);
-  }
-  return hash.digest("hex");
 }

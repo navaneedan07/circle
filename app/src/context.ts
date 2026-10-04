@@ -24,12 +24,40 @@ export class AppContext {
   settings: CircleSettings;
   readonly store: Store;
   readonly resolver: IdentityResolver;
-  readonly embedder: EmbeddingProvider;
-  readonly llm: LLMProvider;
   readonly pipeline: IngestionPipeline;
   readonly watcher: FolderWatcher;
   health: Record<string, unknown> = {};
   started = false;
+
+  /**
+   * The AI providers are rebuilt when the model or address changes.
+   *
+   * They used to be created once in the constructor, so choosing a different
+   * model in Settings updated the saved setting and the label on screen while
+   * the app kept answering with the old one until it was restarted.
+   */
+  private llmFor: LLMProvider | null = null;
+  private llmKey = "";
+  private embedderFor: EmbeddingProvider | null = null;
+  private embedderKey = "";
+
+  get llm(): LLMProvider {
+    const key = `${this.settings.ollamaUrl}|${this.settings.ollamaModel}|${this.settings.llmMaxAnswerTokens}`;
+    if (!this.llmFor || this.llmKey !== key) {
+      this.llmFor = getLlm(this.settings.ollamaUrl, this.settings.ollamaModel, this.settings.llmMaxAnswerTokens);
+      this.llmKey = key;
+    }
+    return this.llmFor;
+  }
+
+  get embedder(): EmbeddingProvider {
+    const key = `${this.settings.ollamaUrl}|${this.settings.embeddingModel}`;
+    if (!this.embedderFor || this.embedderKey !== key) {
+      this.embedderFor = getEmbeddings(this.settings.ollamaUrl, this.settings.embeddingModel);
+      this.embedderKey = key;
+    }
+    return this.embedderFor;
+  }
 
   constructor(dataDir?: string) {
     this.paths = resolvePaths(dataDir);
@@ -38,16 +66,16 @@ export class AppContext {
     this.store = new Store(this.paths.dbPath);
     this.resolver = new IdentityResolver(this.store);
 
-    const llm = getLlm(this.settings.ollamaUrl, this.settings.ollamaModel, this.settings.llmMaxAnswerTokens);
-    this.llm = llm;
-    this.embedder = getEmbeddings(this.settings.ollamaUrl, this.settings.embeddingModel);
+    const llm = this.llm;
 
     this.pipeline = new IngestionPipeline({
       store: this.store,
       resolver: this.resolver,
-      embedder: this.embedder,
+      // A getter, not a snapshot: `updateSettings` replaces the settings
+      // object, and a captured reference would silently keep the old values.
+      settings: () => this.settings,
+      embedder: () => this.embedder,
       paths: this.paths,
-      settings: this.settings,
       emit: (type, payload) => broker.publish(type, payload),
     });
 

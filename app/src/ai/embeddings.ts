@@ -9,7 +9,6 @@
  * When Ollama is unavailable the calls reject, callers fall back to null
  * vectors, and the archive still works through keyword (FTS5) search.
  */
-import { execFileSync } from "node:child_process";
 import { withOllama } from "./gate.js";
 
 export interface EmbeddingStatus {
@@ -139,22 +138,12 @@ export class EmbeddingProvider {
 }
 
 /**
- * Synchronous JSON over HTTP -- reserved for short, local status probes.
+ * Synchronous JSON over HTTP -- removed.
  *
- * Never use this on a path that talks to a model: it blocks the event loop,
- * which in this app means freezing the window. `curl` is present on Windows
- * 10+ and every Unix; bodies go via stdin to avoid argument-length limits.
+ * It existed only for status probes and had no callers left. Keeping it was a
+ * standing invitation to reintroduce a blocking call on the main thread,
+ * which is the single failure mode this module was written to avoid.
  */
-export function curlJson(url: string, method = "GET", body?: string, timeoutSec = 120): unknown {
-  const args = ["-s", "-S", "--max-time", String(timeoutSec), "-X", method, url];
-  if (body !== undefined) args.push("-H", "Content-Type: application/json", "--data-binary", "@-");
-  const result = execFileSync("curl", args, {
-    input: body ?? "",
-    encoding: "utf-8",
-    maxBuffer: 256 * 1024 * 1024,
-  });
-  return JSON.parse(result);
-}
 
 /**
  * Asynchronous JSON over HTTP.
