@@ -20,6 +20,9 @@ export interface EmbeddingStatus {
 
 export class EmbeddingProvider {
   lastMetrics: Record<string, unknown> = {};
+  /** See LLMProvider: a timed-out probe means "busy", not "missing". */
+  private lastConfirmedAt = 0;
+  private lastConfirmedAvailable = false;
 
   constructor(
     private readonly baseUrl: string,
@@ -37,12 +40,23 @@ export class EmbeddingProvider {
     try {
       const names = await this.listModels();
       const available = names.some((n) => n === this.model || n.startsWith(`${this.model}:`));
+      this.lastConfirmedAt = Date.now();
+      this.lastConfirmedAvailable = available;
       return {
         available,
         model: this.model,
         detail: available ? "ready" : `model ${this.model} is not installed (ollama pull ${this.model})`,
       };
     } catch (err) {
+      // A timeout while an import is running must not look like a missing
+      // model: the reader would be told to install something they have.
+      if (this.lastConfirmedAt > 0) {
+        return {
+          available: this.lastConfirmedAvailable,
+          model: this.model,
+          detail: `${this.lastConfirmedAvailable ? "ready" : "not installed"} (Ollama busy; last confirmed recently)`,
+        };
+      }
       return {
         available: false,
         model: this.model,
@@ -52,9 +66,9 @@ export class EmbeddingProvider {
   }
 
   async listModels(): Promise<string[]> {
-    // Short timeout: this feeds the health/setup screens and must never pin
-    // the request behind an unresponsive Ollama.
-    const out = (await fetchJson(`${this.baseUrl}/api/tags`, "GET", undefined, 5_000)) as {
+    // Generous enough to survive a busy Ollama queueing behind an import,
+    // short enough that an actually-dead Ollama is noticed quickly.
+    const out = (await fetchJson(`${this.baseUrl}/api/tags`, "GET", undefined, 20_000)) as {
       models?: { name?: string }[];
     };
     const models = out?.models ?? [];

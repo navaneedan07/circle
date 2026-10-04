@@ -34,8 +34,14 @@ export function createServer(options: ServerOptions): { app: express.Express; in
   const installer = new PrerequisiteInstaller(ctx.settings.ollamaUrl, ctx.settings.ollamaModel, ctx.settings.embeddingModel);
 
   // ---------------------------------- health ----------------------------------
-  app.get("/api/health", (_req, res) => {
-    res.json({ status: ctx.started ? "ok" : "starting", health: ctx.health, started: ctx.started, offline_ready: Boolean((ctx.health.llm as { available?: boolean })?.available) });
+  app.get("/api/health", async (_req, res) => {
+    const health = await ctx.liveHealth();
+    res.json({
+      status: ctx.started ? "ok" : "starting",
+      health,
+      started: ctx.started,
+      offline_ready: Boolean((health.llm as { available?: boolean })?.available),
+    });
   });
 
   app.get("/api/auth/status", async (_req, res) => {
@@ -386,8 +392,13 @@ export function createServer(options: ServerOptions): { app: express.Express; in
     res.json({
       storage_backend: "sqlite",
       watch_folder: ctx.settings.watchFolder,
+      // `ollama_url` was read by the Settings screen but never sent, so the
+      // row rendered permanently blank -- which reads as "the model is not
+      // configured" even when everything is working.
+      ollama_url: ctx.settings.ollamaUrl,
       ollama_model: ctx.settings.ollamaModel,
       embedding_model: ctx.settings.embeddingModel,
+      terms_accepted_at: ctx.settings.termsAcceptedAt,
       data_dir: ctx.paths.dataDir,
       db_path: ctx.paths.dbPath,
     });

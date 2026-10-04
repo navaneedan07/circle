@@ -7,10 +7,22 @@ export interface LlmStatus {
   model: string;
   detail: string;
   installed_models?: string[];
+  /** True when the last probe failed only because Ollama was busy. */
+  busy?: boolean;
 }
 
 export class LLMProvider {
   lastMetrics: Record<string, unknown> = {};
+  /**
+   * Last time we positively confirmed the model was present.
+   *
+   * A probe that times out does NOT mean the model is missing -- it usually
+   * means Ollama is busy serving an import. Reporting "unavailable" there
+   * showed the reader a model that was installed and working as though it
+   * were not, which is worse than saying nothing changed.
+   */
+  private lastConfirmedAt = 0;
+  private lastConfirmedAvailable = false;
 
   constructor(
     private readonly baseUrl: string,
@@ -21,8 +33,9 @@ export class LLMProvider {
   ) {}
 
   private async listModels(): Promise<string[]> {
-    // Short timeout: this is a status probe, not a model call.
-    const out = (await fetchJson(`${this.baseUrl}/api/tags`, "GET", undefined, 5_000)) as {
+    // Generous enough to survive a busy Ollama queueing behind an import,
+    // short enough that an actually-dead Ollama is noticed quickly.
+    const out = (await fetchJson(`${this.baseUrl}/api/tags`, "GET", undefined, 20_000)) as {
       models?: { name?: string }[];
     };
     return (out.models ?? []).map((m) => m.name ?? "").filter(Boolean);
@@ -33,6 +46,8 @@ export class LLMProvider {
     try {
       const names = await this.listModels();
       const available = names.some((n) => n === this.model || n.startsWith(`${this.model}:`));
+      this.lastConfirmedAt = Date.now();
+      this.lastConfirmedAvailable = available;
       return {
         available,
         model: this.model,
@@ -40,6 +55,17 @@ export class LLMProvider {
         installed_models: names,
       };
     } catch (err) {
+      // Keep the last good answer rather than flipping to "missing" every time
+      // the probe loses a race with an import.
+      if (this.lastConfirmedAt > 0) {
+        return {
+          available: this.lastConfirmedAvailable,
+          model: this.model,
+          detail: `${this.lastConfirmedAvailable ? "ready" : "not installed"} (Ollama busy; last confirmed recently)`,
+          installed_models: [],
+          busy: true,
+        };
+      }
       return {
         available: false,
         model: this.model,

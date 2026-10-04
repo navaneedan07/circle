@@ -89,6 +89,11 @@ export class FolderWatcher extends EventEmitter {
       return;
     }
     this.stopped = false;
+    // The watcher IS active from the moment `watch` returns. Its "ready"
+    // event only means the initial scan finished, and on a large synced drive
+    // that can take minutes -- during which the Settings screen happily
+    // reported a working watcher as "missing".
+    this.stats.running = true;
     this.watcher = watch(root, {
       persistent: true,
       ignoreInitial: false,

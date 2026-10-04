@@ -122,6 +122,31 @@ export class AppContext {
     this.store.close();
   }
 
+  /**
+   * Health with the parts that change after startup recomputed.
+   *
+   * The snapshot taken in `start()` is wrong for anything that becomes true
+   * later: the watcher is not `running` until chokidar fires its ready event,
+   * so a healthy watcher reported itself missing for the whole session. Ask
+   * for health and get the state now, not the state at launch.
+   */
+  async liveHealth(): Promise<Record<string, unknown>> {
+    const health: Record<string, unknown> = { ...this.health };
+    health.watcher = {
+      running: this.watcher.stats.running,
+      root: this.settings.watchFolder || "",
+      detail: this.settings.watchFolder
+        ? this.watcher.stats.running
+          ? "watching"
+          : "starting"
+        : "no folder chosen yet",
+    };
+    health.llm = await this.llm.statusAsync().catch(() => this.health.llm);
+    health.embeddings = await this.embedder.statusAsync().catch(() => this.health.embeddings);
+    this.health = health;
+    return health;
+  }
+
   syncStatus(): Record<string, unknown> {
     return {
       watcher_running: this.watcher.stats.running,
