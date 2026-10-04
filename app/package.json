@@ -12,7 +12,9 @@
     "typecheck": "tsc -b",
     "build": "npm run typecheck && node scripts/build.mjs",
     "start": "electron .",
-    "dist": "npm run build:renderer && npm run build && electron-builder"
+    "dist": "npm run build:renderer && npm run build && electron-builder",
+    "release:check": "node scripts/publish-release.mjs",
+    "release": "node scripts/publish-release.mjs --publish"
   },
   "engines": {
     "node": ">=22.5"

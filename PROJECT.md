@@ -96,7 +96,8 @@ backend/
     search/       EMPTY — no code, no references
     security/     media.py, files.py — zip-slip, path traversal guards
     voice/        stt.py, tts.py
-  scripts/        doctor.py, migrate_to_sqlite.py, publish_release.py, launchers
+  scripts/        doctor.py, launchers  (legacy Python backend; the shipped
+                  application is the Electron build in app/)
   tests/          19 files, 551 tests
 frontend/
   src/            React + Vite + TypeScript + Tailwind
@@ -237,14 +238,31 @@ faster-whisper.
 
 ### Publishing
 
+The application is the Electron build in `app/`, so releases are published from
+there with the GitHub CLI:
+
 ```bash
-python backend/scripts/publish_release.py --check   # verify
-python backend/scripts/publish_release.py          # stage into site/downloads
+cd app
+npm run release:check   # verify only; publishes nothing
+npm run release         # publish to GitHub Releases
 ```
 
-It refuses to stage a release that would 404: checks the 100 MB limit, that
-the filename carries the version, and that the page copy matches the real build.
-It exists because the failure mode is silent.
+This replaces an earlier `backend/scripts/publish_release.py`, which staged the
+installer into `site/downloads` and was deleted along with the Python backend.
+
+The installer cannot live in git at all: it is ~277 MB, well past the 100 MB
+per-file limit, so the old script's "stage it next to the page" approach could
+only ever produce a link that 404s. A GitHub Release asset is the correct home.
+
+`npm run release` refuses to publish when the version disagrees between
+`package.json`, the app and the website; when the working tree is dirty or a
+commit is unpushed; when the repository is **private**, because a release there
+is invisible and the public download link 404s for everyone else; and it fetches
+the download URL unauthenticated afterwards to prove the asset is really
+reachable. The failure this guards against is silent: the release succeeds, the
+button works, and the download still 404s.
+
+Requires `gh auth login`.
 
 ---
 

@@ -107,17 +107,49 @@ over **100 MB**, and an Electron installer is comfortably past that (it carries
 the Chromium runtime). The old build fit because it was a 40 MB PyInstaller
 one-file executable; that is no longer true.
 
-The current flow:
+The current flow, automated:
 
-1. Build the zip (`npm run dist`).
-2. Upload it as a **GitHub Release asset** — Releases allow large files and are
-   not subject to the 100 MB per-file git limit.
-3. Point `site/index.html` and `frontend/src/version.ts` at that Release URL.
-   The version in the filename and the URL must move together.
+```bash
+cd app
+npm run release:check     # verify only; publishes nothing
+npm run release           # create/update the GitHub Release and upload the assets
+```
+
+One-time setup, using the [GitHub CLI](https://cli.github.com):
+
+```bash
+winget install --id GitHub.cli -e      # Windows
+gh auth login
+```
+
+A new terminal is needed after installing, because the `PATH` is read at
+startup.
+
+`npm run release` publishes the installer as a **GitHub Release asset** —
+Releases allow large files and are not subject to the 100 MB per-file git limit
+that makes committing it impossible. It then verifies the result, because the
+failure mode here is silent:
+
+- the version must agree between `package.json`, `frontend/src/version.ts` and
+  the download link on the site
+- the working tree must be clean and the commit pushed, or the tag would point
+  at code nobody has
+- **the repository must be public.** A release on a private repository is
+  invisible to visitors, so the download button 404s for anyone not signed in.
+  The script refuses to publish, and says why, unless you pass
+  `--allow-private`.
+- afterwards it fetches the download URL without signing in and requires a 200
+
+That last check is the point. A release can succeed, the button can be live,
+and the download can still 404 — with no error anywhere. Adding the zip as well
+is `node scripts/publish-release.mjs --publish --zip`.
 
 `site/` is committed static HTML with no build step; Render publishes it
 directly (see `render.yaml`). The application is not deployed there — it serves
 its own interface from the local process. The page only hands over the file.
+Check that Render's **Publish Path** is `./site`: serving `frontend/dist`
+deploys the app's own interface, which on a public host has no backend behind
+it and can only render its "no Circle behind it" page.
 
 **A commit alone does not change the deployed site.** Render blueprints are not
 re-read on every push, so after changing `render.yaml` you must open the service
