@@ -29,79 +29,111 @@
       </header>
 
       <main>
-        <h1>Your messages already know who matters. Circle helps you ask.</h1>
+        <p class="eyebrow">Private relationship intelligence for Windows</p>
+        <h1>Remember the context behind the people who matter.</h1>
 
         <p class="lede">
-          Circle is a small Windows application. It reads the message exports
-          you already have on disk, works out which messages belong to which
-          person, and then answers questions like &ldquo;who do I talk to
-          most&rdquo; or &ldquo;what did we promise about the project&rdquo;.
-          Nothing is uploaded, because there is nowhere for it to be uploaded
-          to.
+          Circle is a local-first desktop application that brings your
+          conversations, emails, calendars, notes, documents and voice memories
+          together. Ask natural-language questions about the people in your
+          life and get answers grounded in the records you already have.
         </p>
 
         <div class="downloads">
-          <a class="btn" href="https://github.com/navaneedan07/circle/releases/download/v0.2.2/Circle-0.2.2-windows-x64.exe">
-            Download for Windows
+          <a
+            class="btn"
+            href="https://github.com/navaneedan07/circle/releases/download/v0.2.1/Circle-0.2.1-windows-x64.exe"
+            download
+          >
+            Download Circle for Windows
           </a>
           <span class="btn secondary" aria-disabled="true">macOS &mdash; soon</span>
           <span class="btn secondary" aria-disabled="true">Linux &mdash; soon</span>
         </div>
         <p class="note">
-          One installer, one window. No account, no server, no browser needed.
+          <strong>Latest release: v0.2.1</strong> &middot; One click, one
+          installer, one window. No account or cloud AI subscription required.
         </p>
 
-        <h2>What it actually does</h2>
+        <h2>A private memory layer for your relationships</h2>
         <div class="grid">
           <div class="card">
-            <h3>Reads files you already have</h3>
+            <h3>Bring your own memories</h3>
             <p>
-              WhatsApp, Telegram, Instagram, X, email, calendar files and
-              documents. It reads them where they sit, and never modifies,
-              moves or deletes them.
+              Import the exports and files you already have from WhatsApp,
+              Telegram, Instagram, X, email, calendars, contacts, documents,
+              notes and voice recordings.
             </p>
           </div>
           <div class="card">
-            <h3>Works out who is who</h3>
+            <h3>One person, one context</h3>
             <p>
-              Numbers, handles and display names are matched across sources
-              into one person each. When it is unsure it asks, and it never
-              merges two people without you saying so.
+              Circle connects names, handles, phone numbers and email addresses
+              across sources. Uncertain matches become suggestions instead of
+              silent merges.
             </p>
           </div>
           <div class="card">
-            <h3>Answers from your own machine</h3>
+            <h3>Ask in plain language</h3>
             <p>
-              A local language model through Ollama reads your archive. No API
-              key, no account, no per-question fee, no internet needed once it
-              is set up.
+              Ask about recent conversations, promises, recurring topics,
+              activity, meeting preparation and the things you want to remember.
             </p>
           </div>
           <div class="card">
-            <h3>Keeps one file</h3>
+            <h3>Local by design</h3>
             <p>
-              Everything it learns is a single SQLite database in your Documents
-              folder. Delete that folder and the archive is gone.
+              Your archive stays in a local SQLite database. Ollama runs Gemma
+              and nomic-embed-text on your machine, so your memories do not
+              need to leave it.
             </p>
           </div>
         </div>
 
-        <h2>Questions it can answer</h2>
+        <h2>What you can ask</h2>
         <ul>
           <li>Who do I talk to most, and who have I stopped talking to?</li>
-          <li>What did we last discuss with this person?</li>
+          <li>What have we been talking about recently?</li>
+          <li>What did I promise them?</li>
           <li>What should I remember before meeting them?</li>
-          <li>What are my recurring topics this year?</li>
+          <li>What topics keep coming up between us?</li>
           <li>How many messages did I send last week?</li>
         </ul>
+
+        <div class="callout">
+          <h3>Answers you can check</h3>
+          <p class="muted">
+            Circle combines SQLite full-text search with semantic vector
+            retrieval, then gives the local model only the most relevant
+            evidence. Answers include source snippets and citations so you can
+            inspect the original context instead of treating the model as an
+            authority.
+          </p>
+        </div>
+
+        <h2>Built with open, local AI</h2>
+        <p>
+          Circle uses <strong>Gemma 3:4B</strong> through
+          <strong>Ollama</strong> for private reasoning and
+          <strong>nomic-embed-text</strong> for local semantic search. After
+          the one-time model setup, Circle can answer questions without an
+          internet connection or a per-question API bill.
+        </p>
+        <p>
+          Exact questions such as counts and recent activity are answered
+          directly from SQLite. Open-ended questions use hybrid retrieval and
+          evidence-grounded generation. The result is a practical assistant
+          that is useful without handing your personal archive to a cloud AI
+          provider.
+        </p>
 
         <h2>Setting it up</h2>
         <ol class="steps">
           <li>Run the installer, then open Circle from the Start menu.</li>
           <li>
-            Circle checks for a local model first. If one is missing, one click
-            installs <a href="https://ollama.com/download">Ollama</a> and
-            downloads <code>gemma3:4b</code> and
+            Circle checks for a local model first. If one is missing, the
+            setup flow installs <a href="https://ollama.com/download">Ollama</a>
+            and downloads <code>gemma3:4b</code> and
             <code>nomic-embed-text</code> for you. You are asked before
             anything is downloaded, and it all runs on your own hardware.
           </li>
@@ -121,7 +153,7 @@
           <li>It does not connect to any social account. It reads files.</li>
           <li>It never merges two people without asking you first.</li>
           <li>It does not send anything anywhere, because there is nowhere for it to send it.</li>
-          <li>It has no analytics, no telemetry and no crash reporting.</li>
+          <li>It has no required cloud account, hosted archive or cloud LLM.</li>
         </ul>
 
         <div class="callout">
