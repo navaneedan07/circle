@@ -31,7 +31,7 @@ import type {
   VoiceRecording,
 } from "./domain.js";
 
-const SCHEMA = `
+export const SCHEMA = `
 CREATE TABLE IF NOT EXISTS people (
   id TEXT PRIMARY KEY,
   display_name TEXT NOT NULL,

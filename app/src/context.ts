@@ -194,6 +194,7 @@ export class AppContext {
       tables_rebuilt: this.store.migration.rebuilt,
       unfixable: this.store.migration.unfixable,
       names_repaired: this.store.migration.names_repaired ?? 0,
+      legacy_columns_dropped: this.store.migration.legacy_columns,
     };
     this.health = health;
     return health;

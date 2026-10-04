@@ -112,6 +112,8 @@ export interface MigrationReport {
   rebuilt: string[];
   unfixable: string[];
   names_repaired?: number;
+  /** Columns dropped by a rebuild because they made the table unwritable. */
+  legacy_columns: string[];
 }
 
 /**
@@ -233,7 +235,7 @@ const BACKFILLS: { sql: string; label: string }[] = [
 /** Create or update the schema in an existing database. */
 export function applySchema(db: DatabaseSync, schema: string): MigrationReport {
   const parsed = parseSchema(schema);
-  const report: MigrationReport = { added: [], rebuilt: [], unfixable: [] };
+  const report: MigrationReport = { added: [], rebuilt: [], unfixable: [], legacy_columns: [] };
 
   db.exec("BEGIN");
   try {
@@ -247,13 +249,36 @@ export function applySchema(db: DatabaseSync, schema: string): MigrationReport {
     for (const table of parsed.tables) {
       const body = table.statement.match(/\(([\s\S]*)\)\s*;?\s*$/)?.[1];
       if (!body) continue;
-      const existing = new Set(
-        (db.prepare(`PRAGMA table_info(${table.name})`).all() as { name: string }[]).map((c) => c.name)
-      );
+      const info = db.prepare(`PRAGMA table_info(${table.name})`).all() as {
+        name: string;
+        notnull: number;
+        dflt_value: string | null;
+      }[];
+      const existing = new Set(info.map((c) => c.name));
       if (existing.size === 0) continue; // just created with the right shape
 
       const missing = columnsOf(body).filter((column) => !existing.has(column.name));
       let needsRebuild = false;
+
+      // The inverse problem: a column this build has never heard of, declared
+      // NOT NULL with no default. Every INSERT omits it, so every write fails
+      // with "NOT NULL constraint failed" -- while reads work fine, which is
+      // what makes it look like the app is simply ignoring the files. An old
+      // `processed_files(id, doc, ...)` is exactly this: `doc` is NOT NULL and
+      // nothing ever writes it, so every single import died at the last step
+      // after its records had already landed. Adding columns cannot fix this;
+      // the table has to be rebuilt without them.
+      const wanted = new Set(columnsOf(body).map((c) => c.name));
+      const blockers = info.filter(
+        (column) =>
+          column.notnull === 1 && column.dflt_value === null && !wanted.has(column.name)
+      );
+      if (blockers.length > 0) {
+        needsRebuild = true;
+        report.legacy_columns.push(
+          ...blockers.map((column) => `${table.name}.${column.name}`)
+        );
+      }
 
       for (const column of missing) {
         const definition = addableDefinition(column.definition);
