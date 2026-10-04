@@ -9,7 +9,7 @@ site/index.html carries the same values as static HTML. If you bump this, bump
 it there too (grep for Circle-0.).
 */
 
-export const APP_VERSION = "0.2.1";
+export const APP_VERSION = "0.2.2";
 
 /**
  * Where the built installer is published.
@@ -19,7 +19,7 @@ export const APP_VERSION = "0.2.1";
  * Render page only links to it.
  */
 export const DOWNLOAD_PATH =
-  "https://github.com/navaneedan07/circle/releases/download/v0.2.1/Circle-0.2.1-windows-x64.exe";
+  "https://github.com/navaneedan07/circle/releases/download/v0.2.2/Circle-0.2.2-windows-x64.exe";
 
 /**
  * Base address of the published site, where the terms and privacy notice live.
