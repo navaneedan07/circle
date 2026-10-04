@@ -62,16 +62,18 @@ export function computeProfile(store: Store, personId: string): RelationshipProf
   const events = store.listRelationshipEvents(personId, 1000);
   const now = Date.now();
 
-  const within = (days: number) =>
-    events.filter((e) => now - new Date(e.occurred_at).getTime() <= days * DAY);
+  // `events` is a capped sample of the most recent 1000, which is fine for
+  // scanning summaries but wrong for any number shown to the user as a total.
+  // Those are counted in SQL so a prolific contact reads 36,470 rather than
+  // saturating at the sample size.
+  const stats = store.relationshipEventStats(personId, [14, 60]);
 
-  const events14 = within(14);
-  const events60 = within(60);
+  const events14 = stats.by_window["14"] ?? 0;
+  const events60 = stats.by_window["60"] ?? 0;
   const lastAt = events.length > 0 ? events[0]!.occurred_at : null;
-  const { status, reason } = statusFor(events14.length, events60.length, lastAt);
+  const { status, reason } = statusFor(events14, events60, lastAt);
 
-  const sourceBreakdown: Record<string, number> = {};
-  for (const e of events) sourceBreakdown[e.source] = (sourceBreakdown[e.source] || 0) + 1;
+  const sourceBreakdown: Record<string, number> = stats.by_source;
 
   const topicMap = new Map<string, TopicStat>();
   const selfNames = new Set<string>([
@@ -104,9 +106,9 @@ export function computeProfile(store: Store, personId: string): RelationshipProf
     person_id: personId,
     status,
     status_reason: reason,
-    interaction_count: events.length,
-    interactions_14d: events14.length,
-    interactions_60d: events60.length,
+    interaction_count: stats.total,
+    interactions_14d: events14,
+    interactions_60d: events60,
     last_interaction_at: lastAt,
     source_breakdown: sourceBreakdown,
     topics,

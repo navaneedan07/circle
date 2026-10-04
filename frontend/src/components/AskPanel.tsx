@@ -111,6 +111,12 @@ export default function AskPanel({
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buf = "";
+      // The stream is only trustworthy once a terminal `done` frame arrives.
+      // Everything below tracks whether that happened so a truncated or
+      // protocol-drifted stream can never end as a blank answer.
+      let sawDone = false;
+      let answerText = "";
+      let sources: Source[] | null = null;
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -127,12 +133,23 @@ export default function AskPanel({
             continue;
           }
           if (ev.type === "meta") {
+            const n = Number(ev.evidence_count ?? 0);
             setPhase(
-              `${ev.evidence_count ?? 0} evidence records, generating with local Gemma`
+              Number(ev.latency_ms && (ev.latency_ms as Record<string, number>).generation_ms) != null
+                ? `${n} evidence records, generated with local Gemma`
+                : `${n === 1 ? "1 archive figure" : `${n} archive figures`}`
             );
           } else if (ev.type === "token") {
-            setStreamed((t) => t + String(ev.text ?? ""));
+            answerText += String(ev.text ?? "");
+            setStreamed(answerText);
+          } else if (ev.type === "answer") {
+            // Legacy frame: the answer arrives whole, before `sources`.
+            answerText = String(ev.answer ?? "");
+            setStreamed(answerText);
+          } else if (ev.type === "sources") {
+            sources = (ev.sources as Source[]) ?? [];
           } else if (ev.type === "done") {
+            sawDone = true;
             const done = ev as unknown as AskResult;
             setResult(done);
             setStreamed("");
@@ -147,8 +164,27 @@ export default function AskPanel({
               return next;
             });
           } else if (ev.type === "error") {
+            sawDone = true;
             setError(String(ev.error ?? "stream error"));
           }
+        }
+      }
+      // The stream closed without a terminal frame. Recover what we can;
+      // otherwise re-ask over the plain endpoint, which returns the whole
+      // result in one piece.
+      if (!sawDone) {
+        if (sources && answerText.trim()) {
+          const salvaged: AskResult = {
+            answer: answerText,
+            sources,
+            insufficient: false,
+            evidence_count: sources.length,
+            intent: "",
+            latency_ms: {},
+          };
+          setResult(salvaged);
+        } else {
+          setResult(await api.ask(text, personId));
         }
       }
     } catch {
@@ -257,20 +293,20 @@ export default function AskPanel({
             </div>
             <div className="eyebrow mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line pt-3">
               <span>
-                {result.latency_ms.generation != null
+                {result.latency_ms.generation_ms != null
                   ? `${result.evidence_count} evidence records`
                   : result.evidence_count === 1
                     ? "1 archive figure"
                     : `${result.evidence_count} archive figures`}
               </span>
-              {result.latency_ms.retrieval != null && (
-                <span>retrieval {result.latency_ms.retrieval}ms</span>
+              {result.latency_ms.retrieval_ms != null && (
+                <span>retrieval {result.latency_ms.retrieval_ms}ms</span>
               )}
-              {result.latency_ms.generation != null && (
-                <span>generation {result.latency_ms.generation}ms</span>
+              {result.latency_ms.generation_ms != null && (
+                <span>generation {result.latency_ms.generation_ms}ms</span>
               )}
               <span>
-                {result.latency_ms.generation != null
+                {result.latency_ms.generation_ms != null
                   ? "local Gemma"
                   : "counted from your archive"}
               </span>

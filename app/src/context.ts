@@ -15,6 +15,7 @@ import { Store } from "./store.js";
 import { IdentityResolver } from "./identity.js";
 import { IngestionPipeline } from "./pipeline.js";
 import { FolderWatcher } from "./watcher.js";
+import { refreshProfile } from "./relationship.js";
 import { getEmbeddings, type EmbeddingProvider } from "./ai/embeddings.js";
 import { getLlm, type LLMProvider } from "./ai/llm.js";
 import type { RagDeps } from "./ai/rag.js";
@@ -142,7 +143,22 @@ export class AppContext {
     // not needed to answer the first question -- keyword search covers that --
     // and building it inline is what used to freeze startup.
     void this.store.warmEmbeddingIndex();
+    // Same idea for cached relationship profiles: any whose stored totals no
+    // longer match the events on disk get recomputed, so a bad count can never
+    // outlive the fix that corrects it.
+    void this.repairStaleProfiles();
     return health;
+  }
+
+  private async repairStaleProfiles(): Promise<void> {
+    const ids = this.store.staleProfileIds();
+    this.health.profiles_repaired = ids.length;
+    for (let i = 0; i < ids.length; i++) {
+      refreshProfile(this.store, ids[i]!);
+      // Topic extraction walks a 1000-event window per person, so yielding
+      // keeps the window responsive while this runs.
+      if (i % 5 === 4) await new Promise((r) => setImmediate(r));
+    }
   }
 
   async shutdown(): Promise<void> {
@@ -171,6 +187,14 @@ export class AppContext {
     };
     health.llm = await this.llm.statusAsync().catch(() => this.health.llm);
     health.embeddings = await this.embedder.statusAsync().catch(() => this.health.embeddings);
+    // An upgrade that had to change the database is worth saying out loud:
+    // it is the difference between "my data moved" and "nothing happened".
+    health.migration = {
+      columns_added: this.store.migration.added.length,
+      tables_rebuilt: this.store.migration.rebuilt,
+      unfixable: this.store.migration.unfixable,
+      names_repaired: this.store.migration.names_repaired ?? 0,
+    };
     this.health = health;
     return health;
   }

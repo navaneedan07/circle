@@ -13,6 +13,7 @@ import { DatabaseSync } from "node:sqlite";
 import fs from "node:fs";
 import path from "node:path";
 import { canonicalTime, nowIso } from "./domain.js";
+import { applySchema, repairStoredNames, type MigrationReport } from "./migrate.js";
 import type {
   CalendarEvent,
   Conversation,
@@ -294,8 +295,18 @@ export class Store {
     this.db = new DatabaseSync(dbPath);
     this.db.exec("PRAGMA journal_mode=WAL");
     this.db.exec("PRAGMA foreign_keys=ON");
-    this.db.exec(SCHEMA);
+    // Not `exec(SCHEMA)`: an existing database is left untouched by
+    // CREATE TABLE IF NOT EXISTS, so an upgrade would fail on the first index
+    // or query mentioning a newer column. See src/migrate.ts.
+    this.migration = applySchema(this.db, SCHEMA);
+    // Older builds stored contact names exactly as the export mangled them.
+    // Repairing them here is what an already-imported archive needs; the parser
+    // fix only covers exports read from now on.
+    this.migration.names_repaired = repairStoredNames(this.db);
   }
+
+  /** Columns this build had to add to an existing database, for diagnostics. */
+  readonly migration: MigrationReport;
 
   close(): void {
     this.db.close();
@@ -982,6 +993,40 @@ export class Store {
     ).map((r) => JSON.parse(String(r.doc)) as RelationshipEvent);
   }
 
+  /**
+   * True lifetime totals for one person. `listRelationshipEvents` returns a
+   * capped window, so it must never be used to report a total -- doing so
+   * pins every prolific contact to the cap. Windows are counted in SQL for
+   * the same reason.
+   */
+  relationshipEventStats(
+    personId: string,
+    withinDays: number[] = []
+  ): { total: number; by_source: Record<string, number>; by_window: Record<string, number> } {
+    let total = 0;
+    const bySource: Record<string, number> = {};
+    for (const r of this.all(
+      "SELECT source, COUNT(*) AS n FROM relationship_events WHERE person_id = ? GROUP BY source",
+      [personId]
+    )) {
+      const n = Number(r.n);
+      bySource[String(r.source || "unknown")] = n;
+      total += n;
+    }
+    const byWindow: Record<string, number> = {};
+    const end = nowIso();
+    for (const days of withinDays) {
+      const from = new Date(Date.now() - days * 86_400_000).toISOString();
+      const row = this.get(
+        "SELECT COUNT(*) AS n FROM relationship_events " +
+          "WHERE person_id = ? AND occurred_at >= ? AND occurred_at <= ?",
+        [personId, from, end]
+      );
+      byWindow[String(days)] = row ? Number(row.n) : 0;
+    }
+    return { total, by_source: bySource, by_window: byWindow };
+  }
+
   private occurredWindow(since: string | null, until: string | null): [string, string] {
     const start = since || "1970-01-01T00:00:00.000Z";
     // Bounded at both ends: exports carry future-dated records, and an open
@@ -1080,6 +1125,22 @@ export class Store {
 
   listProfiles(): RelationshipProfile[] {
     return this.all("SELECT doc FROM profiles").map((r) => JSON.parse(String(r.doc)) as RelationshipProfile);
+  }
+
+  /**
+   * People whose cached profile no longer matches the events on disk. Cached
+   * counts are only refreshed for people a finished import touched, so a
+   * change in how counts are derived (or an interrupted import) leaves stale
+   * numbers on screen. One query, so it is cheap enough to run at startup.
+   */
+  staleProfileIds(): string[] {
+    return this.all(
+      "SELECT p.person_id AS person_id FROM profiles p " +
+        "JOIN (SELECT person_id, COUNT(*) AS n FROM relationship_events " +
+        "      WHERE person_id IS NOT NULL GROUP BY person_id) e " +
+        "  ON e.person_id = p.person_id " +
+        "WHERE COALESCE(json_extract(p.doc, '$.interaction_count'), -1) != e.n"
+    ).map((r) => String(r.person_id));
   }
 
   // ========================= Identity suggestions ====================

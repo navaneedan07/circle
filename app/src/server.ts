@@ -289,8 +289,18 @@ export function createServer(options: ServerOptions): { app: express.Express; in
       return;
     }
     res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" });
-    res.write(`data: ${JSON.stringify({ type: "answer", answer: result.answer })}\n\n`);
-    res.write(`data: ${JSON.stringify({ type: "sources", sources: result.sources, insufficient: result.insufficient, intent: result.intent })}\n\n`);
+    // The client keys off these three frame types and ignores anything else, so
+    // `done` has to carry the whole result -- if it closes without one, the
+    // answer is silently dropped on the floor.
+    const frame = (data: Record<string, unknown>) =>
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    frame({
+      type: "meta",
+      evidence_count: result.evidence_count,
+      intent: result.intent,
+      latency_ms: result.latency_ms,
+    });
+    frame({ type: "done", ...result });
     res.end();
   });
 

@@ -14,26 +14,58 @@ export function deterministicId(...parts: string[]): string {
   return sha256Text(parts.join("\u0000")).slice(0, 32);
 }
 
-/** Collapse whitespace and strip control characters. */
+/** Collapse whitespace and strip control characters and stray BOMs. */
 export function cleanText(text: string): string {
   if (!text) return "";
   return text
+    .replace(/\uFEFF/g, "")
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-/** Repair common mojibake from chat exports (UTF-8 read as Latin-1). */
+/**
+ * Characters in the C1 block and the UTF-8 continuation-byte range. Real text
+ * essentially never contains these: C1 controls are unprintable, and the
+ * continuation bytes only appear when UTF-8 was decoded as something else.
+ * Accented Latin letters live in U+00C0-U+00FF, safely above this range, so
+ * this does not fire on correctly-decoded names like "José" or "Çağrı".
+ */
+const C1_FINGERPRINT = /[\u0080-\u00BF]/;
+
+/** The classic heads-up signs that predate the fingerprint above. */
+const LEGACY_MOJIBAKE = /Ã|Â|â|ð/;
+
+/**
+ * Repair mojibake from chat exports: UTF-8 that was decoded as Latin-1.
+ *
+ * Some exports have been through this twice, so the repair is applied
+ * repeatedly until it stops making progress. A round is abandoned the moment
+ * its result contains U+FFFD, meaning the bytes were not valid UTF-8 after all
+ * and this string was never mojibake. That check is what keeps genuine text
+ * untouched: "Ֆびɮび *´¨`*" contains C1 punctuation, but decoding it produces
+ * replacement characters, so it is left exactly as it was.
+ */
 export function repairMojibake(text: string): string {
   if (!text) return "";
-  if (!/Ã|Â|â|ð/.test(text)) return text;
-  try {
-    const repaired = Buffer.from(text, "latin1").toString("utf-8");
-    // Only keep the repair when it removed the tell-tale sequences.
-    return /Ã|Â/.test(repaired) ? text : repaired;
-  } catch {
-    return text;
+  let current = text;
+  // Bounded: each round must strictly reduce the C1 fingerprint, so this
+  // terminates quickly even for text that never becomes clean.
+  for (let round = 0; round < 4; round++) {
+    if (!C1_FINGERPRINT.test(current) && !LEGACY_MOJIBAKE.test(current)) break;
+    let next: string;
+    try {
+      next = Buffer.from(current, "latin1").toString("utf-8");
+    } catch {
+      break;
+    }
+    if (next === current) break;
+    // Undecodable bytes: this string was not mojibake, so stop before
+    // replacing real characters with U+FFFD.
+    if (next.includes("\uFFFD")) break;
+    current = next;
   }
+  return current.replace(/\uFEFF/g, "");
 }
 
 /** Normalize a name for comparison: mojibake fixed, punctuation/emoji removed. */
